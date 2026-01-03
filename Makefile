@@ -1,5 +1,4 @@
-# Variables
-BINARY_NAME=mytool
+BINARY_NAME=stash
 DIST_PATH=dist
 
 .PHONY: all build clean dev

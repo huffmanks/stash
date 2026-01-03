@@ -1,11 +1,11 @@
-# config-stash
+# stash
 
-A centralized repository designed to manage and automate the deployment of my personal development environment. It serves as a single source of truth for my system configurations and dotfiles.
+An interactive CLI tool to bootstrap system packages and dynamically build platform-specific zsh and git configurations.
 
 ---
 
 ## Quick install
 
 ```sh
-curl -sSL https://raw.githubusercontent.com/huffmanks/config-stash/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/huffmanks/stash/main/install.sh | bash
 ```

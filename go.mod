@@ -1,4 +1,4 @@
-module github.com/huffmanks/config-stash
+module github.com/huffmanks/stash
 
 go 1.25.5
 

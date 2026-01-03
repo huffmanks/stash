@@ -4,8 +4,8 @@ import (
 	"context"
 	"slices"
 
-	"github.com/huffmanks/config-stash/internal/config"
-	"github.com/huffmanks/config-stash/internal/utils"
+	"github.com/huffmanks/stash/internal/config"
+	"github.com/huffmanks/stash/internal/utils"
 	"github.com/yarlson/tap"
 )
 

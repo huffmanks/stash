@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/huffmanks/config-stash/internal/setup"
-	"github.com/huffmanks/config-stash/internal/ui"
+	"github.com/huffmanks/stash/internal/setup"
+	"github.com/huffmanks/stash/internal/ui"
 )
 
 func main() {
