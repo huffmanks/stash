@@ -33,22 +33,41 @@ func RunPrompts() (*config.Config, error) {
             conf.PackageManager = detectedPM
         }
 
+        categoryOrder := []string{"Essentials", "Tools", "ZSH shell"}
         categories := map[string][]string{
-            "CLI Tools": {"bat", "fastfetch", "fd", "ffmpeg", "fzf", "gh", "git", "jq", "tree"},
-            "Languages": {"bun", "go", "nvm", "pipx", "pnpm"},
-            "ZSH Shell": {"zsh-syntax-highlighting", "zsh-autosuggestions"},
+            "Essentials": {"bat", "fastfetch", "fd", "ffmpeg", "fzf", "gh", "git", "jq", "tree"},
+            "Tools":      {"bun", "go", "nvm", "pipx", "pnpm"},
+            "ZSH shell":  {"zsh-syntax-highlighting", "zsh-autosuggestions"},
         }
 
-        for cat, pkgs := range categories {
+        for _, cat := range categoryOrder {
+            pkgs := categories[cat]
+            slices.Sort(pkgs)
+
             opts := []tap.SelectOption[string]{}
             for _, p := range pkgs {
                 opts = append(opts, tap.SelectOption[string]{Value: p, Label: p})
             }
 
+            var initial []string
+
+            switch cat {
+            case "Essentials":
+                for _, p := range pkgs {
+                    if p != "ffmpeg" {
+                        initial = append(initial, p)
+                    }
+                }
+            case "ZSH shell":
+                initial = append(initial, pkgs...)
+            }
+
             selected := tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-                Message: "Select " + cat + ":",
-                Options: opts,
+                Message:       "Select " + cat,
+                Options:       opts,
+                InitialValues: initial,
             })
+
             conf.SelectedPkgs = append(conf.SelectedPkgs, selected...)
         }
     }

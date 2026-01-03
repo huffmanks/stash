@@ -24,4 +24,4 @@ clean:
 	mkdir -p $(DIST_PATH)
 
 dev:
-    go run main.go --dry-run
+	go run main.go --dry-run

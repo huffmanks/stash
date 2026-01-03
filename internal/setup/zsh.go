@@ -16,70 +16,94 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	osFolder := map[string]string{"darwin": "macos"}[goos]
 	if osFolder == "" { osFolder = goos }
 
-	manifest := []string{}
+	archFolder := "intel"
+	if arch == "arm64" { archFolder = "arm" }
 
-	addFromDir := func(path string) {
+	var configFiles, exportFiles, promptFiles, aliasFiles, pluginFiles []string
+
+	categorize := func(path string) {
 		files, _ := filepath.Glob(filepath.Join(path, "*.zsh"))
 		slices.Sort(files)
-		manifest = append(manifest, files...)
-	}
-
-	addFromDir(".dotfiles/.zsh/common")
-
-	exportDirs := []string{
-		".dotfiles/.zsh/common/exports",
-		fmt.Sprintf(".dotfiles/.zsh/%s/exports", osFolder),
-	}
-	for _, dir := range exportDirs {
-		for _, pkg := range c.SelectedPkgs {
-			pkgName := strings.TrimSuffix(pkg, "lang")
-			exportFile := filepath.Join(dir, pkgName+".zsh")
-			if _, err := os.Stat(exportFile); err == nil {
-				manifest = append(manifest, exportFile)
+		for _, f := range files {
+			base := filepath.Base(f)
+			switch {
+			case strings.Contains(base, "config"):
+				configFiles = append(configFiles, f)
+			case strings.Contains(base, "prompt"):
+				promptFiles = append(promptFiles, f)
+			case strings.Contains(base, "aliases"):
+				aliasFiles = append(aliasFiles, f)
+			case strings.Contains(base, "plugins"):
+				pluginFiles = append(pluginFiles, f)
 			}
 		}
 	}
 
-	addFromDir(filepath.Join(".dotfiles/.zsh", osFolder))
+	categorize(".dotfiles/.zsh/common")
+	categorize(filepath.Join(".dotfiles/.zsh", osFolder))
+	categorize(filepath.Join(".dotfiles/.zsh", osFolder, archFolder))
 
-	archPath := filepath.Join(".dotfiles/.zsh", osFolder, "intel")
-	if arch == "arm64" {
-		archPath = filepath.Join(".dotfiles/.zsh", osFolder, "arm")
+	exportSearchDirs := []string{
+		".dotfiles/.zsh/common/exports",
+		filepath.Join(".dotfiles/.zsh", osFolder, "exports"),
 	}
-	addFromDir(archPath)
+	for _, dir := range exportSearchDirs {
+		for _, pkg := range c.SelectedPkgs {
+			pkgName := strings.TrimSuffix(pkg, "lang")
+			path := filepath.Join(dir, pkgName+".zsh")
+			if _, err := os.Stat(path); err == nil {
+				exportFiles = append(exportFiles, path)
+			}
+		}
+	}
+
+	var manifest []string
+	manifest = append(manifest, configFiles...)
+	manifest = append(manifest, exportFiles...)
+	manifest = append(manifest, promptFiles...)
+	manifest = append(manifest, aliasFiles...)
+	manifest = append(manifest, pluginFiles...)
 
 	if dryRun {
 		fmt.Printf("\n--- ZSH Build Manifest (%s/%s) ---\n", osFolder, arch)
 	}
 
 	var finalContent []byte
-
-	if c.PackageManager == "macports" {
-		pathGuard := []byte(`# MacPorts Path Setup
-		export PATH="/opt/local/bin:/opt/local/sbin:$PATH"
-	`)
-		finalContent = append(finalContent, pathGuard...)
-	}
+	exportsHeaderAdded := false
 
 	for _, f := range manifest {
 		data, err := os.ReadFile(f)
 		if err != nil { continue }
-
 		if dryRun { fmt.Printf("✅ INCLUDE: %s\n", f) }
 
-		header := fmt.Sprintf("\n# --- Source: %s ---\n", f)
-		finalContent = append(finalContent, []byte(header)...)
+		if !exportsHeaderAdded && slices.Contains(exportFiles, f) {
+            header := "# =====================================\n" +
+                      "# Exports\n" +
+                      "# =====================================\n\n"
+            finalContent = append(finalContent, []byte(header)...)
+            exportsHeaderAdded = true
+        }
+
 		finalContent = append(finalContent, data...)
-		finalContent = append(finalContent, '\n')
 	}
 
 	if slices.Contains(c.BuildFiles, ".zshrc") {
-		utils.WriteFilesDry(filepath.Join(home, ".zshrc"), finalContent, dryRun)
+		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalContent, dryRun)
 	}
 
 	if slices.Contains(c.BuildFiles, ".zprofile") {
-		zprof := []byte("# Source zshrc\n[[ -f ~/.zshrc ]] && . ~/.zshrc\n")
-		utils.WriteFilesDry(filepath.Join(home, ".zprofile"), zprof, dryRun)
+		searchPaths := []string{
+			filepath.Join(".dotfiles", ".zsh", osFolder, archFolder, ".zprofile"),
+			filepath.Join(".dotfiles", ".zsh", osFolder, ".zprofile"),
+		}
+
+		for _, path := range searchPaths {
+			if data, err := os.ReadFile(path); err == nil {
+				if dryRun { fmt.Printf("🔍 Found .zprofile at: %s\n", path) }
+				utils.WriteFiles(filepath.Join(home, ".zprofile"), data, dryRun)
+				break
+			}
+		}
 	}
 
 	if dryRun { fmt.Println("--- End ZSH Manifest ---") }

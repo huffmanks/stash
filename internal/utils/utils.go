@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 )
 
@@ -53,10 +54,20 @@ func RunCmd(shellCmd string, dryRun bool) {
 	}
 }
 
-func WriteFilesDry(path string, content []byte, dryRun bool) {
-	if dryRun {
-		fmt.Printf("[DRY-RUN] Would write to: %s\n", path)
-		return
-	}
-	os.WriteFile(path, content, 0644)
+func WriteFiles(path string, content []byte, dryRun bool) {
+    finalPath := path
+
+    if dryRun {
+        dir := filepath.Dir(path)
+        name := filepath.Base(path)
+        finalPath = filepath.Join(dir, ".test"+name)
+        fmt.Printf("[DRY-RUN] Writing test file to: %s\n", finalPath)
+    } else {
+        fmt.Printf("💾 Writing file to: %s\n", finalPath)
+    }
+
+    err := os.WriteFile(finalPath, content, 0644)
+    if err != nil {
+        fmt.Printf("❌ Error writing %s: %v\n", finalPath, err)
+    }
 }

@@ -3,6 +3,7 @@ package setup
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 	"slices"
 
@@ -77,31 +78,21 @@ func createGitConfig(c *config.Config, dryRun bool) {
 	postBuffer = 10485760
 `, c.GitBranch, c.GitName, c.GitEmail)
 
-	utils.WriteFilesDry(home+"/.gitconfig", []byte(content), dryRun)
+	utils.WriteFiles(home+"/.gitconfig", []byte(content), dryRun)
 }
 
 func copyGitIgnore(dryRun bool) {
-	home, _ := os.UserHomeDir()
-	sourcePath := ".dotfiles/.gitignore"
-	destPath := home + "/.gitignore"
+    home, _ := os.UserHomeDir()
+    sourcePath := ".dotfiles/.gitignore"
+    destPath := filepath.Join(home, ".gitignore")
 
-	if dryRun {
-		fmt.Printf("[DRY-RUN] Would copy %s to %s\n", sourcePath, destPath)
-		return
-	}
+    data, err := os.ReadFile(sourcePath)
+    if err != nil {
+        fmt.Printf("⚠️  Warning: Could not find %s to copy\n", sourcePath)
+        return
+    }
 
-	data, err := os.ReadFile(sourcePath)
-	if err != nil {
-		fmt.Printf("⚠️  Warning: Could not find %s to copy\n", sourcePath)
-		return
-	}
-
-	err = os.WriteFile(destPath, data, 0644)
-	if err != nil {
-		fmt.Printf("❌ Error: Failed to write %s: %v\n", destPath, err)
-	} else {
-		fmt.Println("✅ Copied .gitignore to home directory")
-	}
+    utils.WriteFiles(destPath, data, dryRun)
 }
 
 func printSummary(pkgs, files int, dryRun bool) {
@@ -115,6 +106,6 @@ func printSummary(pkgs, files int, dryRun bool) {
 	fmt.Printf("📄 Files:    %d %s\n", files, modeText)
 
 	if dryRun {
-		fmt.Println("\n⚠️  Reminder: This was a dry run. No actual changes were made.")
+		fmt.Println("\n⚠️  Reminder: This was a dry run. .test.files were generated in your home directory.")
 	}
 }
