@@ -6,61 +6,61 @@ import (
 	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 )
 
-
 func ExecuteSetup(c *config.Config, dryRun bool) error {
-	if !c.InstallPackages && len(c.BuildFiles) == 0 {
-		fmt.Println("ℹ️  No packages selected and no files to build. Exiting.")
-		return nil
-	}
+    if !c.InstallPackages && len(c.BuildFiles) == 0 {
+        fmt.Println("ℹ️  No packages selected and no files to build. Exiting.")
+        return nil
+    }
 
-	pkgCount := 0
-	fileCount := 0
+    pkgCount := 0
+    var filesProcessed []string
 
-	if c.InstallPackages && len(c.SelectedPkgs) > 0 {
-		if runtime.GOOS == "darwin" {
-			ensureMacOSPrereqs(c.PackageManager, dryRun)
-		}
+    if c.InstallPackages && len(c.SelectedPkgs) > 0 {
+        if runtime.GOOS == "darwin" {
+            ensureMacOSPrereqs(c.PackageManager, dryRun)
+        }
 
-		if err := installSystemPkgs(c, dryRun); err != nil {
-			return err
-		}
-		pkgCount = len(c.SelectedPkgs)
-	}
+        if err := installSystemPkgs(c, dryRun); err != nil {
+            return err
+        }
+        pkgCount = len(c.SelectedPkgs)
+    }
 
-	if len(c.BuildFiles) > 0 {
-		if slices.Contains(c.BuildFiles, ".gitconfig") {
-			createGitConfig(c, dryRun)
-			fileCount++
-		}
+    if len(c.BuildFiles) > 0 {
+        if slices.Contains(c.BuildFiles, ".gitconfig") {
+            createGitConfig(c, dryRun)
+            filesProcessed = append(filesProcessed, ".gitconfig")
+        }
 
-		zshProcessed := false
-		if slices.Contains(c.BuildFiles, ".zshrc") {
-			fileCount++
-			zshProcessed = true
-		}
-		if slices.Contains(c.BuildFiles, ".zprofile") {
-			fileCount++
-			zshProcessed = true
-		}
+        zshProcessed := false
+        if slices.Contains(c.BuildFiles, ".zshrc") {
+            filesProcessed = append(filesProcessed, ".zshrc")
+            zshProcessed = true
+        }
+        if slices.Contains(c.BuildFiles, ".zprofile") {
+            filesProcessed = append(filesProcessed, ".zprofile")
+            zshProcessed = true
+        }
 
-		if zshProcessed {
-			buildZshConfigs(c, runtime.GOOS, runtime.GOARCH, dryRun)
-		}
+        if zshProcessed {
+            buildZshConfigs(c, runtime.GOOS, runtime.GOARCH, dryRun)
+        }
 
-		if slices.Contains(c.BuildFiles, ".gitignore") {
-			copyGitIgnore(dryRun)
-			fileCount++
-		}
-	}
+        if slices.Contains(c.BuildFiles, ".gitignore") {
+            copyGitIgnore(dryRun)
+            filesProcessed = append(filesProcessed, ".gitignore")
+        }
+    }
 
-	printSummary(pkgCount, fileCount, dryRun)
+	printSummary(pkgCount, len(c.SelectedPkgs), filesProcessed, dryRun)
 
-	return nil
+    return nil
 }
 
 func createGitConfig(c *config.Config, dryRun bool) {
@@ -95,17 +95,26 @@ func copyGitIgnore(dryRun bool) {
     utils.WriteFiles(destPath, data, dryRun)
 }
 
-func printSummary(pkgs, files int, dryRun bool) {
-	modeText := "Installed/Built"
-	if dryRun {
-		modeText = "Would install/build"
-	}
+func printSummary(pkgsInstalled int, pkgsConfigured int, files []string, dryRun bool) {
 
-	fmt.Printf("\n✨ Setup Complete!\n")
-	fmt.Printf("📦 Packages: %d %s\n", pkgs, modeText)
-	fmt.Printf("📄 Files:    %d %s\n", files, modeText)
-
-	if dryRun {
-		fmt.Println("\n⚠️  Reminder: This was a dry run. .test.files were generated in your home directory.")
+    fmt.Printf("\n✨ Setup Complete!\n")
+    if pkgsInstalled > 0 {
+        fmt.Printf("📦 Installed:  %02d packages\n", pkgsInstalled)
+    } else {
+		fmt.Printf("⚙️  Configured: %02d packages in .zshrc\n", pkgsConfigured)
 	}
+    fmt.Printf("📄 Files:      %02d %s\n", len(files), "generated")
+
+    if dryRun {
+        if len(files) > 0 {
+            var displayNames []string
+            for _, f := range files {
+                displayNames = append(displayNames, "test"+f)
+            }
+            fmt.Printf("\n⚠️  DRY-RUN: The following files were generated in your home directory:\n   %s\n",
+                strings.Join(displayNames, ", "))
+        } else {
+            fmt.Println("\n⚠️  DRY-RUN: No files were generated.")
+        }
+    }
 }

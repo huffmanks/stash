@@ -1,9 +1,13 @@
 package setup
 
 import (
+	"embed"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -11,7 +15,6 @@ import (
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 )
-
 
 func installSystemPkgs(c *config.Config, dryRun bool) error {
 	if runtime.GOOS == "darwin" {
@@ -29,14 +32,18 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
 	for _, pkg := range c.SelectedPkgs {
 		fmt.Printf("📦 Installing %s...\n", pkg)
 		switch pkg {
+		case "bun":
+			utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun)
+		case "docker":
+    		installDocker(runtime.GOOS, dryRun)
+		case "go", "golang":
+    		installGo(dryRun)
+		case "java-android-studio":
+    		installZulu(c.PackageManager, dryRun)
 		case "nvm":
 			utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun)
 		case "pnpm":
 			utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun)
-		case "bun":
-			utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun)
-		case "go", "golang":
-    		installGo(dryRun)
 		default:
 			installViaPM(c.PackageManager, pkg, dryRun)
 		}
@@ -74,6 +81,34 @@ func installViaPM(pm, pkg string, dryRun bool) {
 	}
 }
 
+var dockerScript embed.FS
+
+func installDocker(goos string, dryRun bool) {
+    if goos != "linux" {
+        return
+    }
+
+    tempScript := filepath.Join(os.TempDir(), "get-docker.sh")
+
+    if !dryRun {
+        data, err := dockerScript.ReadFile("scripts/get-docker.sh")
+        if err != nil {
+            fmt.Printf("❌ Failed to read embedded script: %v\n", err)
+            return
+        }
+
+        err = os.WriteFile(tempScript, data, 0755)
+        if err != nil {
+            fmt.Printf("❌ Failed to write temp script: %v\n", err)
+            return
+        }
+
+        defer os.Remove(tempScript)
+    }
+
+    utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun)
+}
+
 func installGo(dryRun bool) {
 	version := "1.25.5"
 	if !dryRun {
@@ -90,6 +125,20 @@ func installGo(dryRun bool) {
 	} else {
 		url = fmt.Sprintf("https://go.dev/dl/go%s.linux-%s.tar.gz", version, runtime.GOARCH)
 		utils.RunCmd(fmt.Sprintf("curl -L %s | sudo tar -C /usr/local -xzf -", url), dryRun)
+	}
+}
+
+func installZulu(pm string, dryRun bool) {
+	var cmdStr string
+	switch pm {
+	case "homebrew":
+		cmdStr = "brew install --cask zulu@17"
+	case "macports":
+		cmdStr = "sudo port install openjdk17-zulu"
+	}
+
+	if cmdStr != "" {
+		utils.RunCmd(cmdStr, dryRun)
 	}
 }
 
@@ -120,37 +169,52 @@ func installMacPorts(dryRun bool) {
 	out, _ := exec.Command("sw_vers", "-productVersion").Output()
 	versionStr := strings.TrimSpace(string(out))
 
-	latestStable := "2.11.6"
-	if !dryRun {
-		cmd := "curl -s https://api.github.com/repos/macports/macports-base/releases/latest | jq -r .tag_name | sed 's/v//'"
-		out, err := exec.Command("sh", "-c", cmd).Output()
-		if err == nil && len(out) > 0 {
-			latestStable = strings.TrimSpace(string(out))
-		}
-	}
-
 	var osName string
 	switch {
-	case strings.HasPrefix(versionStr, "16"): osName = "16-Sequoia"
+	case strings.HasPrefix(versionStr, "26"): osName = "26-Tahoe"
 	case strings.HasPrefix(versionStr, "15"): osName = "15-Sequoia"
 	case strings.HasPrefix(versionStr, "14"): osName = "14-Sonoma"
 	case strings.HasPrefix(versionStr, "13"): osName = "13-Ventura"
 	case strings.HasPrefix(versionStr, "12"): osName = "12-Monterey"
+	case strings.HasPrefix(versionStr, "11"): osName = "11-BigSur"
 	default:
 		fmt.Printf("⚠️  macOS %s not in auto-install list.\n", versionStr)
 		return
 	}
 
-	pkgName := fmt.Sprintf("MacPorts-%s-%s.pkg", latestStable, osName)
-	url := fmt.Sprintf("https://distfiles.macports.org/MacPorts/%s", pkgName)
+	pkgName := "MacPorts-Latest.pkg"
+	downloadURL := ""
+
+	if !dryRun {
+		resp, err := http.Get("https://api.github.com/repos/macports/macports-base/releases/latest")
+		if err == nil {
+			defer resp.Body.Close()
+			var release config.MacPortRelease
+
+			if err := json.NewDecoder(resp.Body).Decode(&release); err == nil {
+				for _, asset := range release.Assets {
+					if strings.Contains(asset.Name, osName) && strings.HasSuffix(asset.Name, ".pkg") {
+						pkgName = asset.Name
+						downloadURL = asset.BrowserDownloadURL
+						break
+					}
+				}
+			}
+		}
+	}
+
+	if downloadURL == "" {
+		downloadURL = fmt.Sprintf("https://distfiles.macports.org/MacPorts/%s", pkgName)
+	}
 
 	if dryRun {
-		fmt.Printf("[DRY-RUN] OS: %s. Would download Latest (%s): %s\n", versionStr, latestStable, url)
+		fmt.Printf("[DRY-RUN] OS: %s. Would download: %s\n", versionStr, downloadURL)
 		return
 	}
 
-	fmt.Printf("📥 Downloading MacPorts %s for %s...\n", latestStable, osName)
-	utils.RunCmd(fmt.Sprintf("curl -O %s", url), false)
+	fmt.Printf("📥 Downloading MacPorts %s for %s...\n", pkgName, osName)
+	utils.RunCmd(fmt.Sprintf("curl -O %s", downloadURL), false)
+
 	fmt.Println("🔐 Root privileges required to run installer...")
 	utils.RunCmd(fmt.Sprintf("sudo installer -pkg %s -target /", pkgName), false)
 	_ = os.Remove(pkgName)

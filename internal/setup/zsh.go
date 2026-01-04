@@ -19,6 +19,11 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	archFolder := "intel"
 	if arch == "arm64" { archFolder = "arm" }
 
+	displayOS := "Linux"
+	if goos == "darwin" {
+		displayOS = "macOS"
+	}
+
 	var configFiles, exportFiles, promptFiles, aliasFiles, pluginFiles []string
 
 	categorize := func(path string) {
@@ -43,6 +48,16 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	categorize(filepath.Join(".dotfiles/.zsh", osFolder))
 	categorize(filepath.Join(".dotfiles/.zsh", osFolder, archFolder))
 
+	pluginPaths := []string{
+        filepath.Join(".dotfiles/.zsh", osFolder, "plugins"),
+        filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
+    }
+    for _, p := range pluginPaths {
+        pFiles, _ := filepath.Glob(filepath.Join(p, "*.zsh"))
+        slices.Sort(pFiles)
+        pluginFiles = append(pluginFiles, pFiles...)
+    }
+
 	exportSearchDirs := []string{
 		".dotfiles/.zsh/common/exports",
 		filepath.Join(".dotfiles/.zsh", osFolder, "exports"),
@@ -57,35 +72,50 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 		}
 	}
 
-	var manifest []string
-	manifest = append(manifest, configFiles...)
-	manifest = append(manifest, exportFiles...)
-	manifest = append(manifest, promptFiles...)
-	manifest = append(manifest, aliasFiles...)
-	manifest = append(manifest, pluginFiles...)
-
 	if dryRun {
-		fmt.Printf("\n--- ZSH Build Manifest (%s/%s) ---\n", osFolder, arch)
+		fmt.Printf("\n--- ZSH Build Manifest (%s:%s) ---\n", displayOS, arch)
 	}
 
 	var finalContent []byte
 	exportsHeaderAdded := false
+	pluginsHeaderAdded := false
 
-	for _, f := range manifest {
-		data, err := os.ReadFile(f)
-		if err != nil { continue }
-		if dryRun { fmt.Printf("✅ INCLUDE: %s\n", f) }
+	appendSection := func(files []string, isExport bool, isPlugin bool) {
+        if len(files) == 0 { return }
 
-		if !exportsHeaderAdded && slices.Contains(exportFiles, f) {
-            header := "# =====================================\n" +
-                      "# Exports\n" +
-                      "# =====================================\n\n"
-            finalContent = append(finalContent, []byte(header)...)
-            exportsHeaderAdded = true
+        for i, f := range files {
+            data, err := os.ReadFile(f)
+            if err != nil { continue }
+            if dryRun { fmt.Printf("✅ INCLUDE: %s\n", f) }
+
+            if isExport && !exportsHeaderAdded {
+                header := "# =====================================\n" +
+                          "# Exports\n" +
+                          "# =====================================\n\n"
+                finalContent = append(finalContent, []byte(header)...)
+                exportsHeaderAdded = true
+            }
+
+            if isPlugin && !pluginsHeaderAdded {
+                header := fmt.Sprintf("# =====================================\n"+
+                                     "# Plugins (%s:%s)\n"+
+                                     "# =====================================\n\n", displayOS, arch)
+                finalContent = append(finalContent, []byte(header)...)
+                pluginsHeaderAdded = true
+            }
+
+            finalContent = append(finalContent, data...)
+			if !isPlugin || i < len(files)-1 {
+				finalContent = append(finalContent, '\n')
+			}
         }
+    }
 
-		finalContent = append(finalContent, data...)
-	}
+	appendSection(configFiles, false, false)
+    appendSection(exportFiles, true, false)
+    appendSection(promptFiles, false, false)
+    appendSection(aliasFiles, false, false)
+    appendSection(pluginFiles, false, true)
 
 	if slices.Contains(c.BuildFiles, ".zshrc") {
 		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalContent, dryRun)
