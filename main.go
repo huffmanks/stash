@@ -10,7 +10,7 @@ import (
 	"github.com/huffmanks/stash/internal/ui"
 )
 
-var version = "version:dev"
+var version = ":dev"
 
 func main() {
     dryRun := flag.Bool("dry-run", false, "Run the setup without making actual changes")
@@ -18,7 +18,7 @@ func main() {
     flag.Parse()
 
     if *showVersion {
-		fmt.Printf("stash %s\n", version)
+		fmt.Printf("stash v%s\n", version)
 		os.Exit(0)
 	}
 
