@@ -9,4 +9,8 @@
 desktop.ini
 ehthumbs.db
 Thumbs.db
-dist
+
+# ==============================
+# Build / Dependency Directories
+# ==============================
+dist/
