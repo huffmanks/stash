@@ -98,7 +98,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
         for i, f := range files {
             data, err := os.ReadFile(f)
             if err != nil { continue }
-            if dryRun { fmt.Printf("✅ INCLUDE: %s\n", f) }
+            if dryRun { fmt.Printf("✅ [INCLUDE]: %s\n", f) }
 
             if isExport && !exportsHeaderAdded {
                 header := "# =====================================\n" +
@@ -129,6 +129,10 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
     appendSection(aliasFiles, false, false)
     appendSection(pluginFiles, false, true)
 
+	if dryRun {
+		fmt.Print("\n--- End ZSH Manifest ---\n")
+	}
+
 	if slices.Contains(c.BuildFiles, ".zshrc") {
 		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalContent, dryRun)
 	}
@@ -141,12 +145,10 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
 		for _, path := range searchPaths {
 			if data, err := os.ReadFile(path); err == nil {
-				if dryRun { fmt.Printf("🔍 Found .zprofile at: %s\n", path) }
+				if dryRun { fmt.Printf("📍 [FOUND]: .zprofile at: %s\n", path) }
 				utils.WriteFiles(filepath.Join(home, ".zprofile"), data, dryRun)
 				break
 			}
 		}
 	}
-
-	if dryRun { fmt.Println("--- End ZSH Manifest ---") }
 }

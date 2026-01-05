@@ -1,7 +1,7 @@
 BINARY_NAME=stash
 DIST_PATH=dist
 
-.PHONY: all clean dev build release
+.PHONY: all clean dev dev-version build release
 
 all: dev
 
@@ -12,6 +12,9 @@ clean:
 
 dev:
 	go run main.go --dry-run
+
+dev-version:
+	go run main.go --version
 
 build:
 	goreleaser release --snapshot --clean

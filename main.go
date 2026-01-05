@@ -11,7 +11,7 @@ import (
 	"github.com/huffmanks/stash/internal/utils"
 )
 
-var version = ":dev"
+var version = "dev"
 
 func main() {
     var dryRun bool
@@ -30,17 +30,22 @@ func main() {
     flag.Parse()
 
     if showVersion {
-		fmt.Printf("stash v%s\n", version)
+		title := fmt.Sprintf("Version: %s", version)
+		banner := ui.DisplayBanner(title)
+
+        utils.HandleVersion(banner)
 		os.Exit(0)
 	}
 
 	if uninstall {
-		utils.HandleUninstall()
-		os.Exit(0)
+		banner := ui.DisplayBanner("Uninstalling stash", "This will remove the binary from your system.")
+
+        utils.HandleUninstall(banner)
+        os.Exit(0)
 	}
 
 	if dryRun {
-		fmt.Println("⚠️  DRY RUN MODE: No changes will be written to disk.")
+		fmt.Println("[DRY-RUN] MODE: No changes will be written to disk.")
 	}
 
 	conf, err := ui.RunPrompts()

@@ -14,18 +14,12 @@ func RunPrompts() (*config.Config, error) {
     ctx := context.Background()
 	conf := &config.Config{}
 
-    welcome := `
-  ______ ______  ______  ______  __  __
- / ___//_  __/  / __  / / ___/  / / / /
- \__ \  / /    / /_/ /  \__ \  / /_/ /
- ___/ / / /    / __  /  ___/ / / __  /
-/____/ /_/    /_/ /_/  /____/ /_/ /_/
+    message := DisplayBanner(
+        "Welcome to stash!",
+        "This tool will help you install packages and configure your shell.",
+    )
 
-🚀 Welcome to stash!
-This tool will help you install packages and configure your shell.
-------------------------------------------------------------------`
-
-    tap.Message(welcome)
+    tap.Message(message)
 
     conf.InstallPackages = tap.Confirm(ctx, tap.ConfirmOptions{
         Message:      "Run package installer?",

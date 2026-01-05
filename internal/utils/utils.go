@@ -40,16 +40,16 @@ func DetectPackageManager() string {
 
 func RunCmd(shellCmd string, dryRun bool) {
 	if dryRun {
-		fmt.Printf("[DRY-RUN] Would execute: %s\n", shellCmd)
+		fmt.Printf("[DRY-RUN]: Would execute: %s\n", shellCmd)
 		return
 	}
 
-	fmt.Printf("Executing: %s\n", shellCmd)
+	fmt.Printf("[EXECUTING]: %s\n", shellCmd)
 	cmd := exec.Command("sh", "-c", shellCmd)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Error executing command: %v\n", err)
+		fmt.Printf("[ERROR]: executing command %v\n", err)
 	}
 }
 
@@ -60,13 +60,13 @@ func WriteFiles(path string, content []byte, dryRun bool) {
         dir := filepath.Dir(path)
         name := filepath.Base(path)
         finalPath = filepath.Join(dir, ".test"+name)
-        fmt.Printf("[DRY-RUN] Writing test file to: %s\n", finalPath)
+        fmt.Printf("[DRY-RUN]: Writing test file to: %s\n", finalPath)
     } else {
-        fmt.Printf("💾 Writing file to: %s\n", finalPath)
+        fmt.Printf("[WRITING]: file to %s\n", finalPath)
     }
 
     err := os.WriteFile(finalPath, content, 0644)
     if err != nil {
-        fmt.Printf("❌ Error writing %s: %v\n", finalPath, err)
+        fmt.Printf("[ERROR]: writing %s - %v\n", finalPath, err)
     }
 }

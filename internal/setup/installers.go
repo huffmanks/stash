@@ -30,12 +30,16 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
     }
 
 	for _, pkg := range c.SelectedPkgs {
-		fmt.Printf("📦 Installing %s...\n", pkg)
+		if runtime.GOOS != "linux" && pkg != "docker" {
+			fmt.Printf("\n📦 Installing %s...\n", pkg)
+		}
 		switch pkg {
 		case "bun":
 			utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun)
 		case "docker":
-    		installDocker(runtime.GOOS, dryRun)
+			if runtime.GOOS == "linux" {
+				installDocker(dryRun)
+    		}
 		case "go":
     		installGo(dryRun)
 		case "java-android-studio":
@@ -81,23 +85,19 @@ func installViaPM(pm, pkg string, dryRun bool) {
 
 var dockerScript embed.FS
 
-func installDocker(goos string, dryRun bool) {
-    if goos != "linux" {
-        return
-    }
-
+func installDocker(dryRun bool) {
     tempScript := filepath.Join(os.TempDir(), "get-docker.sh")
 
     if !dryRun {
         data, err := dockerScript.ReadFile("scripts/get-docker.sh")
         if err != nil {
-            fmt.Printf("❌ Failed to read embedded script: %v\n", err)
+            fmt.Printf("[ERROR]: Failed to read embedded script: %v\n", err)
             return
         }
 
         err = os.WriteFile(tempScript, data, 0755)
         if err != nil {
-            fmt.Printf("❌ Failed to write temp script: %v\n", err)
+            fmt.Printf("[ERROR]: Failed to write temp script: %v\n", err)
             return
         }
 
@@ -144,9 +144,9 @@ func ensureMacOSPrereqs(pm string, dryRun bool) {
 	_, err := exec.LookPath("xcode-select")
     if err != nil {
         if dryRun {
-            fmt.Println("[DRY-RUN] Would ensure xcode-select is installed")
+            fmt.Println("[DRY-RUN]: Would ensure xcode-select is installed")
         } else {
-            fmt.Println("🛠️  Installing Xcode Command Line Tools...")
+            fmt.Println("📦 [INSTALLING]: Xcode Command Line Tools...")
             _ = exec.Command("xcode-select", "--install").Run()
         }
     }
@@ -176,7 +176,7 @@ func installMacPorts(dryRun bool) {
 	case strings.HasPrefix(versionStr, "12"): osName = "12-Monterey"
 	case strings.HasPrefix(versionStr, "11"): osName = "11-BigSur"
 	default:
-		fmt.Printf("⚠️  macOS %s not in auto-install list.\n", versionStr)
+		fmt.Printf("[WARNING]: macOS %s not in auto-install list.\n", versionStr)
 		return
 	}
 
@@ -210,10 +210,10 @@ func installMacPorts(dryRun bool) {
 		return
 	}
 
-	fmt.Printf("📥 Downloading MacPorts %s for %s...\n", pkgName, osName)
+	fmt.Printf("[DOWNLOADING]: MacPorts %s for %s...\n", pkgName, osName)
 	utils.RunCmd(fmt.Sprintf("curl -O %s", downloadURL), false)
 
-	fmt.Println("🔐 Root privileges required to run installer...")
+	fmt.Println("[WARNING]: Root privileges required to run installer...")
 	utils.RunCmd(fmt.Sprintf("sudo installer -pkg %s -target /", pkgName), false)
 	_ = os.Remove(pkgName)
 }
