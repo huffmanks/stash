@@ -8,31 +8,48 @@ import (
 
 	"github.com/huffmanks/stash/internal/setup"
 	"github.com/huffmanks/stash/internal/ui"
+	"github.com/huffmanks/stash/internal/utils"
 )
 
 var version = ":dev"
 
 func main() {
-    dryRun := flag.Bool("dry-run", false, "Run the setup without making actual changes")
-    showVersion := flag.Bool("version", false, "Show the current version of stash")
+    var dryRun bool
+	var showVersion bool
+    var uninstall bool
+
+	flag.BoolVar(&dryRun, "dry-run", false, "Run without making changes")
+	flag.BoolVar(&dryRun, "d", false, "Run without making changes (shorthand)")
+
+	flag.BoolVar(&showVersion, "version", false, "Show version")
+	flag.BoolVar(&showVersion, "v", false, "Show version (shorthand)")
+
+	flag.BoolVar(&uninstall, "uninstall", false, "Remove stash and associated configs")
+	flag.BoolVar(&uninstall, "u", false, "Remove stash (shorthand)")
+
     flag.Parse()
 
-    if *showVersion {
+    if showVersion {
 		fmt.Printf("stash v%s\n", version)
 		os.Exit(0)
 	}
 
-    if *dryRun {
-        fmt.Println("⚠️  DRY RUN MODE")
-    }
+	if uninstall {
+		utils.HandleUninstall()
+		os.Exit(0)
+	}
 
-    conf, err := ui.RunPrompts()
-    if err != nil {
-        log.Fatal(err)
-    }
+	if dryRun {
+		fmt.Println("⚠️  DRY RUN MODE: No changes will be written to disk.")
+	}
 
-    err = setup.ExecuteSetup(conf, *dryRun)
-    if err != nil {
-        log.Fatal(err)
-    }
+	conf, err := ui.RunPrompts()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = setup.ExecuteSetup(conf, dryRun)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

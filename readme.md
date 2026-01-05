@@ -24,7 +24,8 @@ stash
 
 ## Flags
 
-| Flag      | Shorthand | Description                                                            |
-| --------- | --------- | ---------------------------------------------------------------------- |
-| --dry-run | -d        | Preview which files would be created/modified without writing to disk. |
-| --version | -v        | Display the current installed version of stash.                        |
+| Flag        | Shorthand | Description                                                            |
+| ----------- | --------- | ---------------------------------------------------------------------- |
+| --dry-run   | -d        | Preview which files would be created/modified without writing to disk. |
+| --version   | -v        | Display the current installed version of stash.                        |
+| --uninstall | -u        | Remove stash from system.                                              |
