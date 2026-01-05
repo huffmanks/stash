@@ -5,8 +5,16 @@ set -e
 REPO="huffmanks/stash"
 VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 
+if command -v stash >/dev/null 2>&1; then
+    CURRENT_VERSION=$(stash --version | awk '{print $NF}')
+    if [ "${CURRENT_VERSION#v}" = "${VERSION#v}" ]; then
+        echo "✨ Stash ${VERSION} is already installed and up to date!"
+        exit 0
+    fi
+    echo "upgrading Stash from ${CURRENT_VERSION} to ${VERSION}..."
+fi
+
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-[ "$OS" = "darwin" ] && OS="darwin"
 
 ARCH=$(uname -m)
 if [ "$ARCH" = "x86_64" ]; then
