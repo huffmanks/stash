@@ -1,17 +1,17 @@
 package setup
 
 import (
-	"embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"path"
 	"runtime"
 	"slices"
 	"strings"
 
+	"github.com/huffmanks/stash/internal/assets"
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 )
@@ -83,13 +83,12 @@ func installViaPM(pm, pkg string, dryRun bool) {
 	}
 }
 
-var dockerScript embed.FS
 
 func installDocker(dryRun bool) {
-    tempScript := filepath.Join(os.TempDir(), "get-docker.sh")
+    tempScript := path.Join(os.TempDir(), "get-docker.sh")
 
     if !dryRun {
-        data, err := dockerScript.ReadFile("scripts/get-docker.sh")
+        data, err := assets.Files.ReadFile("scripts/get-docker.sh")
         if err != nil {
             fmt.Printf("[ERROR]: Failed to read embedded script: %v\n", err)
             return

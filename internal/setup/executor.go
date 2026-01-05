@@ -3,12 +3,13 @@ package setup
 import (
 	"fmt"
 	"os"
-	"path/filepath"
+	"path"
 	"runtime"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/huffmanks/stash/internal/assets"
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 	"github.com/yarlson/tap"
@@ -108,9 +109,9 @@ func createGitConfig(c *config.Config, dryRun bool) {
 func copyGitIgnore(dryRun bool) {
     home, _ := os.UserHomeDir()
     sourcePath := ".dotfiles/.gitignore"
-    destPath := filepath.Join(home, ".gitignore")
+    destPath := path.Join(home, ".gitignore")
 
-    data, err := os.ReadFile(sourcePath)
+    data, err := assets.Files.ReadFile(sourcePath)
     if err != nil {
         fmt.Printf("[WARNING]: Could not find %s to copy\n", sourcePath)
         return

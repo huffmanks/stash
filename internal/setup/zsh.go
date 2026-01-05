@@ -2,11 +2,13 @@ package setup
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
+	"path"
 	"slices"
 	"strings"
 
+	"github.com/huffmanks/stash/internal/assets"
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 )
@@ -26,38 +28,45 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
 	var configFiles, exportFiles, promptFiles, aliasFiles, pluginFiles []string
 
-	categorize := func(path string) {
-		files, _ := filepath.Glob(filepath.Join(path, "*.zsh"))
-		slices.Sort(files)
-		for _, f := range files {
-			base := filepath.Base(f)
+	categorize := func(dirPath string) {
+		entries, err := assets.Files.ReadDir(dirPath)
+		if err != nil { return }
+
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".zsh") {
+				continue
+			}
+
+			fullPath := path.Join(dirPath, entry.Name())
+			base := entry.Name()
+
 			switch {
 			case strings.Contains(base, "config"):
-				configFiles = append(configFiles, f)
+				configFiles = append(configFiles, fullPath)
 			case strings.Contains(base, "prompt"):
-				promptFiles = append(promptFiles, f)
+				promptFiles = append(promptFiles, fullPath)
 			case strings.Contains(base, "aliases"):
-				aliasFiles = append(aliasFiles, f)
+				aliasFiles = append(aliasFiles, fullPath)
 			}
 		}
 	}
 
 	categorize(".dotfiles/.zsh/common")
-	categorize(filepath.Join(".dotfiles/.zsh", osFolder))
-	categorize(filepath.Join(".dotfiles/.zsh", osFolder, archFolder))
+	categorize(path.Join(".dotfiles/.zsh", osFolder))
+	categorize(path.Join(".dotfiles/.zsh", osFolder, archFolder))
 
 	exportSearchDirs := []string{
 		".dotfiles/.zsh/common/exports",
-		filepath.Join(".dotfiles/.zsh", osFolder, "exports"),
-		filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "exports"),
+		path.Join(".dotfiles/.zsh", osFolder, "exports"),
+		path.Join(".dotfiles/.zsh", osFolder, archFolder, "exports"),
 	}
 
 	for _, dir := range exportSearchDirs {
         for _, pkg := range c.SelectedPkgs {
-            path := filepath.Join(dir, pkg+".zsh")
-            if _, err := os.Stat(path); err == nil {
-                if !slices.Contains(exportFiles, path) {
-                    exportFiles = append(exportFiles, path)
+            filePath := path.Join(dir, pkg+".zsh")
+            if _, err := fs.Stat(assets.Files, filePath); err == nil {
+                if !slices.Contains(exportFiles, filePath) {
+                    exportFiles = append(exportFiles, filePath)
                 }
             }
         }
@@ -67,16 +76,16 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
 	pluginSearchDirs := []string{
 		".dotfiles/.zsh/common/plugins",
-		filepath.Join(".dotfiles/.zsh", osFolder, "plugins"),
-		filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
+		path.Join(".dotfiles/.zsh", osFolder, "plugins"),
+		path.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
 	}
 
 	for _, dir := range pluginSearchDirs {
 		for _, pkg := range c.SelectedPkgs {
-			path := filepath.Join(dir, pkg+".zsh")
-			if _, err := os.Stat(path); err == nil {
-				if !slices.Contains(pluginFiles, path) {
-					pluginFiles = append(pluginFiles, path)
+			filePath := path.Join(dir, pkg+".zsh")
+			if _, err := fs.Stat(assets.Files, filePath); err == nil {
+				if !slices.Contains(pluginFiles, filePath) {
+					pluginFiles = append(pluginFiles, filePath)
 				}
 			}
 		}
@@ -96,7 +105,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
         if len(files) == 0 { return }
 
         for i, f := range files {
-            data, err := os.ReadFile(f)
+            data, err := assets.Files.ReadFile(f)
             if err != nil { continue }
             if dryRun { fmt.Printf("✅ [INCLUDE]: %s\n", f) }
 
@@ -134,19 +143,19 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	}
 
 	if slices.Contains(c.BuildFiles, ".zshrc") {
-		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalContent, dryRun)
+		utils.WriteFiles(path.Join(home, ".zshrc"), finalContent, dryRun)
 	}
 
 	if slices.Contains(c.BuildFiles, ".zprofile") {
 		searchPaths := []string{
-			filepath.Join(".dotfiles", ".zsh", osFolder, archFolder, ".zprofile"),
-			filepath.Join(".dotfiles", ".zsh", osFolder, ".zprofile"),
+			path.Join(".dotfiles", ".zsh", osFolder, archFolder, ".zprofile"),
+			path.Join(".dotfiles", ".zsh", osFolder, ".zprofile"),
 		}
 
-		for _, path := range searchPaths {
-			if data, err := os.ReadFile(path); err == nil {
-				if dryRun { fmt.Printf("📍 [FOUND]: .zprofile at: %s\n", path) }
-				utils.WriteFiles(filepath.Join(home, ".zprofile"), data, dryRun)
+		for _, p := range searchPaths {
+			if data, err := assets.Files.ReadFile(p); err == nil {
+				if dryRun { fmt.Printf("📍 [FOUND]: .zprofile at: %s\n", p) }
+				utils.WriteFiles(path.Join(home, ".zprofile"), data, dryRun)
 				break
 			}
 		}
