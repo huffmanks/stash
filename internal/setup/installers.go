@@ -36,7 +36,7 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
 			utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun)
 		case "docker":
     		installDocker(runtime.GOOS, dryRun)
-		case "go", "golang":
+		case "go":
     		installGo(dryRun)
 		case "java-android-studio":
     		installZulu(c.PackageManager, dryRun)
@@ -72,8 +72,6 @@ func installViaPM(pm, pkg string, dryRun bool) {
 		cmdStr = fmt.Sprintf("sudo port install %s", pkg)
 	case "pacman":
 		cmdStr = fmt.Sprintf("sudo pacman -S --noconfirm %s", pkg)
-	case "yum":
-		cmdStr = fmt.Sprintf("sudo yum install -y %s", pkg)
 	}
 
 	if cmdStr != "" {

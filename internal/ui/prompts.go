@@ -38,9 +38,11 @@ This tool will help you install packages and configure your shell.
             conf.PackageManager = tap.Select(ctx, tap.SelectOptions[string]{
                 Message: "Select your package manager:",
                 Options: []tap.SelectOption[string]{
-                    {Value: "apt", Label: "apt"},
-                    {Value: "homebrew", Label: "homebrew"},
-                    {Value: "macports", Label: "macports"},
+                    {Value: "apt", Label: "apt", Hint: "Debian, Ubuntu"},
+                    {Value: "dnf", Label: "dnf", Hint: "Fedora, RHEL, AlmaLinux"},
+                    {Value: "homebrew", Label: "homebrew", Hint: "macOS"},
+                    {Value: "macports", Label: "macports", Hint: "macOS"},
+                    {Value: "pacman", Label: "pacman", Hint: "Arch Linux"},
                 },
             })
         } else {
@@ -48,37 +50,46 @@ This tool will help you install packages and configure your shell.
         }
     }
 
-    categoryOrder := []string{"Essentials", "Tools", "ZSH shell"}
     categories := map[string][]string{
-        "Essentials": {"bat", "fastfetch", "fd", "ffmpeg", "fzf", "gh", "git", "jq", "tree"},
-        "Tools":      {"bun", "docker", "go", "nvm", "pipx", "pnpm"},
-        "ZSH shell":  {"zsh-syntax-highlighting", "zsh-autosuggestions"},
+        "CLI tools": {},
+        "Exports": {"bun", "docker", "go", "nvm", "pipx", "pnpm"},
+        "Plugins": {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
+    }
+
+    if conf.InstallPackages {
+        categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "tree"}
     }
 
     if runtime.GOOS == "darwin" {
-        categories["Tools"] = append(categories["Tools"], "java-android-studio")
+        categories["Exports"] = append(categories["Exports"], "java-android-studio")
     }
+
+    categoryOrder := []string{"CLI tools", "Exports", "Plugins"}
 
     for _, cat := range categoryOrder {
         pkgs := categories[cat]
+        if len(pkgs) == 0 { continue }
+
         slices.Sort(pkgs)
 
-        opts := []tap.SelectOption[string]{}
-        for _, p := range pkgs {
-            opts = append(opts, tap.SelectOption[string]{Value: p, Label: p})
+        opts := make([]tap.SelectOption[string], len(pkgs))
+        for i, p := range pkgs {
+            opts[i] = tap.SelectOption[string]{Value: p, Label: p}
         }
 
         var initial []string
 
         switch cat {
-        case "Essentials":
+        case "CLI tools":
+            skipDefaults := []string{"fastfetch", "ffmpeg"}
+
             for _, p := range pkgs {
-                if p != "ffmpeg" {
+                if !slices.Contains(skipDefaults, p) {
                     initial = append(initial, p)
                 }
             }
-        case "ZSH shell":
-            initial = append(initial, pkgs...)
+        case "Plugins":
+            initial = pkgs
         }
 
         selected := tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
@@ -101,9 +112,9 @@ This tool will help you install packages and configure your shell.
     })
 
 	if slices.Contains(conf.BuildFiles, ".gitconfig") {
-		conf.GitName = tap.Text(ctx, tap.TextOptions{Message: "Git Name:", DefaultValue: "John Doe"})
-		conf.GitEmail = tap.Text(ctx, tap.TextOptions{Message: "Git Email:", DefaultValue: "email@example.com"})
-		conf.GitBranch = tap.Text(ctx, tap.TextOptions{Message: "Default Branch:", DefaultValue: "main"})
+		conf.GitName = tap.Text(ctx, tap.TextOptions{Message: "Git Name:", DefaultValue: "John Doe", Placeholder: "John Doe"})
+		conf.GitEmail = tap.Text(ctx, tap.TextOptions{Message: "Git Email:", DefaultValue: "email@example.com", Placeholder: "email@example.com"})
+		conf.GitBranch = tap.Text(ctx, tap.TextOptions{Message: "Default Branch:", DefaultValue: "main", InitialValue: "main", Placeholder: "main"})
 	}
 
     return conf, nil

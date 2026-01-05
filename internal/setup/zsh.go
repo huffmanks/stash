@@ -38,8 +38,6 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 				promptFiles = append(promptFiles, f)
 			case strings.Contains(base, "aliases"):
 				aliasFiles = append(aliasFiles, f)
-			case strings.Contains(base, "plugins"):
-				pluginFiles = append(pluginFiles, f)
 			}
 		}
 	}
@@ -48,29 +46,43 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	categorize(filepath.Join(".dotfiles/.zsh", osFolder))
 	categorize(filepath.Join(".dotfiles/.zsh", osFolder, archFolder))
 
-	pluginPaths := []string{
-        filepath.Join(".dotfiles/.zsh", osFolder, "plugins"),
-        filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
-    }
-    for _, p := range pluginPaths {
-        pFiles, _ := filepath.Glob(filepath.Join(p, "*.zsh"))
-        slices.Sort(pFiles)
-        pluginFiles = append(pluginFiles, pFiles...)
-    }
-
 	exportSearchDirs := []string{
 		".dotfiles/.zsh/common/exports",
 		filepath.Join(".dotfiles/.zsh", osFolder, "exports"),
+		filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "exports"),
 	}
+
 	for _, dir := range exportSearchDirs {
+        for _, pkg := range c.SelectedPkgs {
+            path := filepath.Join(dir, pkg+".zsh")
+            if _, err := os.Stat(path); err == nil {
+                if !slices.Contains(exportFiles, path) {
+                    exportFiles = append(exportFiles, path)
+                }
+            }
+        }
+    }
+
+	slices.Sort(exportFiles)
+
+	pluginSearchDirs := []string{
+		".dotfiles/.zsh/common/plugins",
+		filepath.Join(".dotfiles/.zsh", osFolder, "plugins"),
+		filepath.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
+	}
+
+	for _, dir := range pluginSearchDirs {
 		for _, pkg := range c.SelectedPkgs {
-			pkgName := strings.TrimSuffix(pkg, "lang")
-			path := filepath.Join(dir, pkgName+".zsh")
+			path := filepath.Join(dir, pkg+".zsh")
 			if _, err := os.Stat(path); err == nil {
-				exportFiles = append(exportFiles, path)
+				if !slices.Contains(pluginFiles, path) {
+					pluginFiles = append(pluginFiles, path)
+				}
 			}
 		}
 	}
+
+	slices.Sort(pluginFiles)
 
 	if dryRun {
 		fmt.Printf("\n--- ZSH Build Manifest (%s:%s) ---\n", displayOS, arch)

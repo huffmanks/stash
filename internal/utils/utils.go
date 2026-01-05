@@ -26,7 +26,6 @@ func DetectPackageManager() string {
 			{"apt", "apt-get"},
 			{"pacman", "pacman"},
 			{"dnf", "dnf"},
-			{"yum", "yum"},
 		}
 
 		for _, pm := range managers {

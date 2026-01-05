@@ -101,9 +101,9 @@ func printSummary(pkgsInstalled int, pkgsConfigured int, files []string, dryRun 
     if pkgsInstalled > 0 {
         fmt.Printf("📦 Installed:  %02d packages\n", pkgsInstalled)
     } else {
-		fmt.Printf("⚙️  Configured: %02d packages in .zshrc\n", pkgsConfigured)
+		fmt.Printf("⚙️  Configured: %02d packages\n", pkgsConfigured)
 	}
-    fmt.Printf("📄 Files:      %02d %s\n", len(files), "generated")
+    fmt.Printf("📄 Files:       %d %s\n", len(files), "generated")
 
     if dryRun {
         if len(files) > 0 {
