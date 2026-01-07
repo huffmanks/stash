@@ -1,3 +1,5 @@
+source <(fzf --zsh)
+
 # ----- fzf completions -----
 source /usr/share/fzf/shell/completion.zsh
 

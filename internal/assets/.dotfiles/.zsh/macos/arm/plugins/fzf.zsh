@@ -1,3 +1,5 @@
+source <(fzf --zsh)
+
 # ----- fzf completions -----
 source /opt/homebrew/opt/fzf/shell/completion.zsh
 
