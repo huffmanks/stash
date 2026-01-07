@@ -55,43 +55,29 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 	categorize(path.Join(".dotfiles/.zsh", osFolder))
 	categorize(path.Join(".dotfiles/.zsh", osFolder, archFolder))
 
-	exportSearchDirs := []string{
-		".dotfiles/.zsh/common/exports",
-		path.Join(".dotfiles/.zsh", osFolder, "exports"),
-		path.Join(".dotfiles/.zsh", osFolder, archFolder, "exports"),
-	}
+	slices.Sort(c.SelectedPkgs)
 
-	for _, dir := range exportSearchDirs {
+	searchLevels := []string{
+        path.Join(".dotfiles/.zsh", osFolder, archFolder),
+        path.Join(".dotfiles/.zsh", osFolder),
+        ".dotfiles/.zsh/common",
+    }
+
+	collectFiles := func(subDir string) []string {
+        var collected []string
         for _, pkg := range c.SelectedPkgs {
-            filePath := path.Join(dir, pkg+".zsh")
-            if _, err := fs.Stat(assets.Files, filePath); err == nil {
-                if !slices.Contains(exportFiles, filePath) {
-                    exportFiles = append(exportFiles, filePath)
+            for _, level := range searchLevels {
+                filePath := path.Join(level, subDir, pkg+".zsh")
+                if _, err := fs.Stat(assets.Files, filePath); err == nil {
+                    collected = append(collected, filePath)
                 }
             }
         }
+        return collected
     }
 
-	slices.Sort(exportFiles)
-
-	pluginSearchDirs := []string{
-		".dotfiles/.zsh/common/plugins",
-		path.Join(".dotfiles/.zsh", osFolder, "plugins"),
-		path.Join(".dotfiles/.zsh", osFolder, archFolder, "plugins"),
-	}
-
-	for _, dir := range pluginSearchDirs {
-		for _, pkg := range c.SelectedPkgs {
-			filePath := path.Join(dir, pkg+".zsh")
-			if _, err := fs.Stat(assets.Files, filePath); err == nil {
-				if !slices.Contains(pluginFiles, filePath) {
-					pluginFiles = append(pluginFiles, filePath)
-				}
-			}
-		}
-	}
-
-	slices.Sort(pluginFiles)
+    exportFiles = collectFiles("exports")
+    pluginFiles = collectFiles("plugins")
 
 	if dryRun {
 		fmt.Printf("\n--- ZSH Build Manifest (%s:%s) ---\n", displayOS, arch)
