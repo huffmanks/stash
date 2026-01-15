@@ -23,7 +23,14 @@ elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
     ARCH="arm64"
 fi
 
-BINARY_NAME="stash_${VERSION#v}_${OS}_${ARCH}"
+if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
+    PREFIX="stash-legacy"
+else
+    PREFIX="stash"
+fi
+
+BINARY_NAME="${PREFIX}_${VERSION#v}_${OS}_${ARCH}"
+
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}.tar.gz"
 
 echo "🚀 Downloading Stash ${VERSION} for ${OS}/${ARCH}..."
@@ -31,7 +38,12 @@ curl -L -o stash.tar.gz "${DOWNLOAD_URL}"
 
 tar -xzf stash.tar.gz stash
 chmod +x stash
+
+sudo mkdir -p /usr/local/bin
 sudo mv stash /usr/local/bin/stash
+sudo xattr -d com.apple.quarantine /usr/local/bin/stash 2>/dev/null || true
+
 rm stash.tar.gz
 
-echo "✅ Successfully installed! Type 'stash' to start."
+echo "✅ Stash installed to /usr/local/bin/stash"
+stash --version

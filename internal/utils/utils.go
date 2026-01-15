@@ -46,8 +46,11 @@ func RunCmd(shellCmd string, dryRun bool) {
 
 	fmt.Printf("[EXECUTING]: %s\n", shellCmd)
 	cmd := exec.Command("sh", "-c", shellCmd)
+
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
 	if err := cmd.Run(); err != nil {
 		fmt.Printf("[ERROR]: executing command %v\n", err)
 	}
