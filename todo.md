@@ -1,0 +1,2 @@
+- [ ] Add update command
+- [ ] Add --force flag to install.sh

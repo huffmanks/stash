@@ -10,60 +10,75 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/huffmanks/stash/internal/assets"
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
+	"github.com/yarlson/tap"
 )
 
-func installSystemPkgs(c *config.Config, dryRun bool) error {
-	if runtime.GOOS == "darwin" {
-		ensureMacOSPrereqs(c.PackageManager, dryRun)
-	}
-
-	if runtime.GOOS == "linux" {
-		hasPlugins := slices.Contains(c.SelectedPkgs, "zsh-syntax-highlighting") ||
-			slices.Contains(c.SelectedPkgs, "zsh-autosuggestions")
-		if hasPlugins && !slices.Contains(c.SelectedPkgs, "zsh") {
-			c.SelectedPkgs = append(c.SelectedPkgs, "zsh")
-		}
-	}
+func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, failedPkgs *[]string) error {
 
 	for _, pkg := range c.SelectedPkgs {
+		var err error
+
 		if runtime.GOOS != "linux" && pkg != "docker" {
-			fmt.Printf("\n📦 Installing %s...\n", pkg)
-		}
-		switch pkg {
-		case "bun":
-			utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun)
-		case "docker":
-			if runtime.GOOS == "linux" {
-				installDocker(dryRun)
+			msg := fmt.Sprintf("📦 Installing %s...", pkg)
+			progress.Message(msg)
+
+			if dryRun {
+				time.Sleep(time.Second * 2)
 			}
-		case "go":
-			installGo(dryRun)
-		case "java-android-studio":
-			installZulu(c.PackageManager, dryRun)
-		case "nvm":
-			utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun)
-		case "pnpm":
-			utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun)
-		default:
-			installViaPM(c.PackageManager, pkg, dryRun)
 		}
 
+		switch pkg {
+		case "bun":
+			err = utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun, progress)
+		case "docker":
+			if runtime.GOOS == "linux" {
+				err = installDocker(dryRun, progress)
+			}
+		case "go":
+			err = installGo(dryRun, progress)
+		case "java-android-studio":
+			err = installZulu(c.PackageManager, dryRun, progress)
+		case "nvm":
+			err = utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun, progress)
+		case "pnpm":
+			err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
+		default:
+			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
+		}
+
+		if err != nil {
+			if !slices.Contains(*failedPkgs, pkg) {
+				*failedPkgs = append(*failedPkgs, pkg)
+			}
+
+			progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
+		} else {
+			progress.Advance(1, fmt.Sprintf("✅ [%s]: installed", pkg))
+		}
+
+		time.Sleep(time.Second * 1)
+
 		if pkg == "zsh" && runtime.GOOS == "linux" {
-			utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun)
+			if utils.HasSudoPrivilege() {
+				utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun, progress)
+			}
 		}
 		if pkg == "bat" && runtime.GOOS == "linux" {
-			aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
-			utils.RunCmd(aliasCmd, dryRun)
+			if utils.HasSudoPrivilege() {
+				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
+				utils.RunCmd(aliasCmd, dryRun, progress)
+			}
 		}
 	}
 	return nil
 }
 
-func installViaPM(pm, pkg string, dryRun bool) {
+func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 	var cmdStr string
 	switch pm {
 	case "apt":
@@ -78,34 +93,40 @@ func installViaPM(pm, pkg string, dryRun bool) {
 		cmdStr = fmt.Sprintf("sudo pacman -S --noconfirm %s", pkg)
 	}
 
-	if cmdStr != "" {
-		utils.RunCmd(cmdStr, dryRun)
+	if cmdStr == "" {
+		return fmt.Errorf("Unsupported package manager.")
 	}
+
+	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
-func installDocker(dryRun bool) {
+func installDocker(dryRun bool, progress *tap.Progress) error {
 	tempScript := path.Join(os.TempDir(), "get-docker.sh")
 
 	if !dryRun {
 		data, err := assets.Files.ReadFile("scripts/get-docker.sh")
 		if err != nil {
-			fmt.Printf("[ERROR]: Failed to read embedded script: %v\n", err)
-			return
+			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to read docker script: %v", err)
+			progress.Message(msg)
+
+			return fmt.Errorf("Failed to read docker script: %w", err)
 		}
 
 		err = os.WriteFile(tempScript, data, 0755)
 		if err != nil {
-			fmt.Printf("[ERROR]: Failed to write temp script: %v\n", err)
-			return
+			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to write temp script: %v", err)
+			progress.Message(msg)
+
+			return fmt.Errorf("Failed to write temp script: %w", err)
 		}
 
 		defer os.Remove(tempScript)
 	}
 
-	utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun)
+	return utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun, progress)
 }
 
-func installGo(dryRun bool) {
+func installGo(dryRun bool, progress *tap.Progress) error {
 	version := "1.25.5"
 	if !dryRun {
 		out, err := exec.Command("sh", "-c", "curl -s 'https://go.dev/VERSION?m=text' | head -n 1").Output()
@@ -114,17 +135,19 @@ func installGo(dryRun bool) {
 		}
 	}
 
-	var url string
+	var cmd string
 	if runtime.GOOS == "darwin" {
-		url = fmt.Sprintf("https://go.dev/dl/go%s.darwin-%s.pkg", version, runtime.GOARCH)
-		utils.RunCmd(fmt.Sprintf("curl -LO %s && sudo installer -pkg go%s.darwin-%s.pkg -target /", url, version, runtime.GOARCH), dryRun)
+		url := fmt.Sprintf("https://go.dev/dl/go%s.darwin-%s.pkg", version, runtime.GOARCH)
+		cmd = fmt.Sprintf("curl -LO %s && sudo installer -pkg go%s.darwin-%s.pkg -target /", url, version, runtime.GOARCH)
 	} else {
-		url = fmt.Sprintf("https://go.dev/dl/go%s.linux-%s.tar.gz", version, runtime.GOARCH)
-		utils.RunCmd(fmt.Sprintf("curl -L %s | sudo tar -C /usr/local -xzf -", url), dryRun)
+		url := fmt.Sprintf("https://go.dev/dl/go%s.linux-%s.tar.gz", version, runtime.GOARCH)
+		cmd = fmt.Sprintf("curl -L %s | sudo tar -C /usr/local -xzf -", url)
 	}
+
+	return utils.RunCmd(cmd, dryRun, progress)
 }
 
-func installZulu(pm string, dryRun bool) {
+func installZulu(pm string, dryRun bool, progress *tap.Progress) error {
 	var cmdStr string
 	switch pm {
 	case "homebrew":
@@ -133,35 +156,50 @@ func installZulu(pm string, dryRun bool) {
 		cmdStr = "sudo port install openjdk17-zulu"
 	}
 
-	if cmdStr != "" {
-		utils.RunCmd(cmdStr, dryRun)
+	if cmdStr == "" {
+		return fmt.Errorf("Unsupported package manager for java: %s", pm)
 	}
+
+	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
-func ensureMacOSPrereqs(pm string, dryRun bool) {
+func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPkgs *[]string) {
 	_, err := exec.LookPath("xcode-select")
 	if err != nil {
 		if dryRun {
-			fmt.Println("[DRY-RUN]: Would ensure xcode-select is installed")
+			progress.Advance(1, "___ [DRY-RUN]: Would ensure xcode-select is installed")
 		} else {
-			fmt.Println("📦 [INSTALLING]: Xcode Command Line Tools...")
-			_ = exec.Command("xcode-select", "--install").Run()
+			cmdErr := utils.RunCmd("xcode-select --install", dryRun, progress)
+			if cmdErr != nil {
+				*failedPkgs = append(*failedPkgs, "xcode")
+			}
+			progress.Advance(1, "📦 [INSTALLING]: Xcode Command Line Tools...")
 		}
 	}
 
 	switch pm {
 	case "homebrew":
 		if _, err := exec.LookPath("brew"); err != nil {
-			utils.RunCmd(`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, dryRun)
+			cmdErr := utils.RunCmd(`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`, dryRun, progress)
+
+			if cmdErr != nil {
+				*failedPkgs = append(*failedPkgs, "homebrew")
+			}
+			progress.Advance(1, "📦 [INSTALLING]: Homebrew...")
 		}
 	case "macports":
 		if _, err := exec.LookPath("port"); err != nil {
-			installMacPorts(dryRun)
+			cmdErr := installMacPorts(dryRun, progress)
+
+			if cmdErr != nil {
+				*failedPkgs = append(*failedPkgs, "macports")
+			}
+			progress.Advance(1, "📦 [INSTALLING]: Macports...")
 		}
 	}
 }
 
-func installMacPorts(dryRun bool) {
+func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	out, _ := exec.Command("sw_vers", "-productVersion").Output()
 	versionStr := strings.TrimSpace(string(out))
 
@@ -180,8 +218,9 @@ func installMacPorts(dryRun bool) {
 	case strings.HasPrefix(versionStr, "11"):
 		osName = "11-BigSur"
 	default:
-		fmt.Printf("[WARNING]: macOS %s not in auto-install list.\n", versionStr)
-		return
+		msg := fmt.Sprintf("⚠️ [WARNING]: macOS %s not in auto-install list.", versionStr)
+		progress.Message(msg)
+		return fmt.Errorf("macOS %s not in auto-install list.", versionStr)
 	}
 
 	pkgName := "MacPorts-Latest.pkg"
@@ -210,14 +249,24 @@ func installMacPorts(dryRun bool) {
 	}
 
 	if dryRun {
-		fmt.Printf("[DRY-RUN] OS: %s. Would download: %s\n", versionStr, downloadURL)
-		return
+		msg := fmt.Sprintf("___ [DRY-RUN]: %s. Would download: %s", versionStr, downloadURL)
+		progress.Message(msg)
+		return nil
 	}
 
-	fmt.Printf("[DOWNLOADING]: MacPorts %s for %s...\n", pkgName, osName)
-	utils.RunCmd(fmt.Sprintf("curl -O %s", downloadURL), false)
+	dlMsg := fmt.Sprintf("↓ [DOWNLOADING]: MacPorts %s for %s...", pkgName, osName)
+	progress.Message(dlMsg)
+	cmdErrDownload := utils.RunCmd(fmt.Sprintf("curl -O %s", downloadURL), false, progress)
+	if cmdErrDownload != nil {
+		return cmdErrDownload
+	}
 
-	fmt.Println("[WARNING]: Root privileges required to run installer...")
-	utils.RunCmd(fmt.Sprintf("sudo installer -pkg %s -target /", pkgName), false)
+	cmdErrInstall := utils.RunCmd(fmt.Sprintf("sudo installer -pkg %s -target /", pkgName), false, progress)
 	_ = os.Remove(pkgName)
+
+	if cmdErrInstall != nil {
+		return cmdErrInstall
+	}
+
+	return nil
 }

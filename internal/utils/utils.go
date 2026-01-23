@@ -6,6 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
+
+	"github.com/yarlson/tap"
 )
 
 func DetectPackageManager() string {
@@ -38,38 +41,61 @@ func DetectPackageManager() string {
 	return "unknown"
 }
 
-func RunCmd(shellCmd string, dryRun bool) {
+func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	if dryRun {
-		fmt.Printf("[DRY-RUN]: Would execute: %s\n", shellCmd)
-		return
+		msg := fmt.Sprintf("___ [DRY-RUN]: Would execute: %s", shellCmd)
+		progress.Message(msg)
+		return nil
 	}
 
-	fmt.Printf("[EXECUTING]: %s\n", shellCmd)
+	if strings.HasPrefix(shellCmd, "sudo") {
+		if !HasSudoPrivilege() {
+			progress.Message("⏭️ [SKIPPING]: No sudo session active.")
+			return fmt.Errorf("skipping: sudo required")
+		}
+	}
+
+	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
+	progress.Message(executingMsg)
 	cmd := exec.Command("sh", "-c", shellCmd)
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
+	_, err := cmd.CombinedOutput()
 
-	if err := cmd.Run(); err != nil {
-		fmt.Printf("[ERROR]: executing command %v\n", err)
+	if err != nil {
+		progress.Message(fmt.Sprintf("⛔️ [ERROR]: %s", shellCmd))
+		return err
 	}
+
+	return nil
 }
 
-func WriteFiles(path string, content []byte, dryRun bool) {
+func WriteFiles(path string, content []byte, dryRun bool, spinner *tap.Spinner) {
 	finalPath := path
 
 	if dryRun {
 		dir := filepath.Dir(path)
 		name := filepath.Base(path)
 		finalPath = filepath.Join(dir, ".test"+name)
-		fmt.Printf("[DRY-RUN]: Writing test file to: %s\n", finalPath)
+		msg := fmt.Sprintf("___ [DRY-RUN]: Writing test file to: %s", finalPath)
+		spinner.Message(msg)
 	} else {
-		fmt.Printf("[WRITING]: file to %s\n", finalPath)
+		msg := fmt.Sprintf("📝 [WRITING]: file to %s", finalPath)
+		spinner.Message(msg)
 	}
 
 	err := os.WriteFile(finalPath, content, 0644)
 	if err != nil {
-		fmt.Printf("[ERROR]: writing %s - %v\n", finalPath, err)
+		errMsg := fmt.Sprintf("⛔️ [ERROR]: writing %s - %v", finalPath, err)
+		spinner.Message(errMsg)
 	}
+}
+
+func CommandExists(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
+
+func HasSudoPrivilege() bool {
+	err := exec.Command("sudo", "-n", "true").Run()
+	return err == nil
 }

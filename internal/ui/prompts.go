@@ -10,7 +10,7 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func RunPrompts() (*config.Config, error) {
+func RunPrompts(dryRun bool) (*config.Config, error) {
 	ctx := context.Background()
 	conf := &config.Config{}
 
@@ -19,14 +19,17 @@ func RunPrompts() (*config.Config, error) {
 		"This tool will help you install packages and configure your shell.",
 	)
 
-	tap.Message(message)
+	tap.Intro(message)
 
-	conf.InstallPackages = tap.Confirm(ctx, tap.ConfirmOptions{
-		Message:      "Run package installer?",
-		InitialValue: false,
+	conf.Operation = tap.Select(ctx, tap.SelectOptions[string]{
+		Message: "What would you like to do?",
+		Options: []tap.SelectOption[string]{
+			{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
+			{Value: "install", Label: "Install packages", Hint: "bun, docker, go, nvm, pipx, pnpm, etc."},
+		},
 	})
 
-	if conf.InstallPackages {
+	if conf.Operation == "install" {
 		detectedPM := utils.DetectPackageManager()
 		if detectedPM == "unknown" {
 			conf.PackageManager = tap.Select(ctx, tap.SelectOptions[string]{
@@ -50,7 +53,7 @@ func RunPrompts() (*config.Config, error) {
 		"Plugins":   {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
 	}
 
-	if conf.InstallPackages {
+	if conf.Operation == "install" {
 		categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "tree"}
 	}
 
@@ -89,28 +92,34 @@ func RunPrompts() (*config.Config, error) {
 		}
 
 		selected := tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-			Message:       "Select " + cat,
-			Options:       opts,
-			InitialValues: initial,
+			Message: "Select " + cat,
+			Options: opts,
+			// InitialValues: initial,
 		})
 
 		conf.SelectedPkgs = append(conf.SelectedPkgs, selected...)
 	}
 
-	conf.BuildFiles = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-		Message: "What do you want built?",
-		Options: []tap.SelectOption[string]{
-			{Value: ".zshrc", Label: ".zshrc"},
-			{Value: ".zprofile", Label: ".zprofile"},
-			{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
-			{Value: ".gitignore", Label: ".gitignore"},
-		},
-	})
+	if conf.Operation == "configure" {
+		conf.BuildFiles = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
+			Message: "What do you want built?",
+			Options: []tap.SelectOption[string]{
+				{Value: ".zshrc", Label: ".zshrc"},
+				{Value: ".zprofile", Label: ".zprofile"},
+				{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
+				{Value: ".gitignore", Label: ".gitignore"},
+			},
+		})
+	}
 
 	if slices.Contains(conf.BuildFiles, ".gitconfig") {
 		conf.GitName = tap.Text(ctx, tap.TextOptions{Message: "Git Name:", DefaultValue: "John Doe", Placeholder: "John Doe"})
 		conf.GitEmail = tap.Text(ctx, tap.TextOptions{Message: "Git Email:", DefaultValue: "email@example.com", Placeholder: "email@example.com"})
 		conf.GitBranch = tap.Text(ctx, tap.TextOptions{Message: "Default Branch:", DefaultValue: "main", InitialValue: "main", Placeholder: "main"})
+	}
+
+	if dryRun {
+		tap.Message("___ [DRY-RUN]: No changes will be written to disk.")
 	}
 
 	return conf, nil

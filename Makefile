@@ -11,7 +11,7 @@ clean:
 	mkdir -p $(DIST_PATH)
 
 dev:
-	go run main.go --dry-run
+	go run main.go --dry-run || exit 0
 
 dev-version:
 	go run main.go --version

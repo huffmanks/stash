@@ -44,13 +44,9 @@ func main() {
 		os.Exit(0)
 	}
 
-	conf, err := ui.RunPrompts()
+	conf, err := ui.RunPrompts(dryRun)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	if dryRun {
-		fmt.Println("[DRY-RUN] MODE: No changes will be written to disk.")
 	}
 
 	err = setup.ExecuteSetup(conf, dryRun)

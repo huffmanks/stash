@@ -3,6 +3,7 @@ package setup
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path"
 	"runtime"
 	"slices"
@@ -16,41 +17,132 @@ import (
 )
 
 func ExecuteSetup(c *config.Config, dryRun bool) error {
-	if !c.InstallPackages && len(c.BuildFiles) == 0 {
-		fmt.Println("[INFO]: No packages selected and no files to build. Exiting.")
+
+	if c.Operation == "install" && len(c.SelectedPkgs) == 0 {
+		tap.Outro("💡 [INFO]: No packages selected to install. Exiting.")
 		return nil
 	}
 
-	spinner := tap.NewSpinner(tap.SpinnerOptions{
-		Delay: time.Millisecond * 100,
-	})
-	spinner.Start("Initializing...")
-
-	pkgCount := 0
-	var filesProcessed []string
-
-	if c.InstallPackages && len(c.SelectedPkgs) > 0 {
-		if runtime.GOOS == "darwin" {
-			spinner.Message("Checking prerequisities...")
-			time.Sleep(time.Second * 2)
-			ensureMacOSPrereqs(c.PackageManager, dryRun)
-		}
-
-		spinner.Message("Installing packages...")
-		time.Sleep(time.Second * 2)
-
-		if err := installSystemPkgs(c, dryRun); err != nil {
-			return err
-		}
-		pkgCount = len(c.SelectedPkgs)
+	if c.Operation == "configure" && len(c.BuildFiles) == 0 {
+		tap.Outro("💡 [INFO]: No shell files selected to configure Exiting.")
+		return nil
 	}
 
-	if len(c.BuildFiles) > 0 {
+	pkgCount := 0
+	extraPkgs := 0
+	needsSystemTools := false
+	var filesProcessed []string
+
+	if c.Operation == "install" && len(c.SelectedPkgs) > 0 {
+
+		if !dryRun && !utils.HasSudoPrivilege() {
+			tap.Message("Root privileges are required for installing packages.")
+
+			cmd := exec.Command("sh", "-c", "sudo", "-v")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin
+
+			if err := cmd.Run(); err != nil {
+				tap.Outro("❌ [ERROR]: Sudo authentication failed. Exiting.")
+				os.Exit(1)
+			}
+		}
+
+		if runtime.GOOS == "darwin" {
+			if !utils.CommandExists("xcode-select") {
+				extraPkgs++
+				needsSystemTools = true
+			}
+
+			if c.PackageManager == "brew" && !utils.CommandExists("brew") {
+				extraPkgs++
+				needsSystemTools = true
+			} else if c.PackageManager == "macports" && !utils.CommandExists("port") {
+				extraPkgs++
+				needsSystemTools = true
+			}
+		}
+
+		if runtime.GOOS == "linux" {
+			hasPlugins := slices.Contains(c.SelectedPkgs, "zsh-syntax-highlighting") ||
+				slices.Contains(c.SelectedPkgs, "zsh-autosuggestions")
+			if hasPlugins && !slices.Contains(c.SelectedPkgs, "zsh") {
+				c.SelectedPkgs = append(c.SelectedPkgs, "zsh")
+				extraPkgs++
+			}
+		}
+
+		pkgCount = len(c.SelectedPkgs) + extraPkgs
+
+		progress := tap.NewProgress(tap.ProgressOptions{
+			Max:   pkgCount,
+			Style: "heavy",
+			Size:  40,
+		})
+
+		progress.Start("Installing packages...")
+
+		var failedPkgs []string
+
+		if needsSystemTools {
+			ensureMacOSPrereqs(c.PackageManager, dryRun, progress, &failedPkgs)
+		}
+
+		if err := installSystemPkgs(c, dryRun, progress, &failedPkgs); err != nil {
+			return err
+		}
+
+		time.Sleep(time.Second * 1)
+		progress.Stop("🏁 [FINISHED]", 0)
+		time.Sleep(time.Second * 1)
+
+		successfulPkgs := c.SelectedPkgs
+
+		if len(failedPkgs) > 0 {
+			failedMap := make(map[string]bool)
+			for _, p := range failedPkgs {
+				failedMap[p] = true
+			}
+
+			successfulPkgs = []string{}
+			for _, p := range c.SelectedPkgs {
+				if !failedMap[p] {
+					successfulPkgs = append(successfulPkgs, p)
+				}
+			}
+		}
+
+		installedPkgsMsg := fmt.Sprintf("📦 [INSTALLED]: %d packages\n\n   %s",
+			len(successfulPkgs),
+			strings.Join(successfulPkgs, ", "))
+
+		if len(failedPkgs) > 0 {
+
+			if len(successfulPkgs) > 0 {
+				tap.Message(installedPkgsMsg)
+			}
+
+			failedPkgsMsg := fmt.Sprintf("❌ [FAILED]: %d packages\n\n   %s",
+				len(failedPkgs),
+				strings.Join(failedPkgs, ", "))
+
+			tap.Outro(failedPkgsMsg)
+		} else {
+			tap.Outro(installedPkgsMsg)
+		}
+	}
+
+	if c.Operation == "configure" && len(c.BuildFiles) > 0 {
+
+		gitignoreSpinner := tap.NewSpinner(tap.SpinnerOptions{
+			Delay: time.Millisecond * 100,
+		})
+		gitconfigSpinner := tap.NewSpinner(tap.SpinnerOptions{
+			Delay: time.Millisecond * 100,
+		})
 
 		zshProcessed := false
-
-		spinner.Message("Building files...")
-		time.Sleep(time.Second * 1)
 
 		if slices.Contains(c.BuildFiles, ".zshrc") {
 			filesProcessed = append(filesProcessed, ".zshrc")
@@ -63,32 +155,49 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		}
 
 		if zshProcessed {
-			spinner.Message("Creating zsh files...")
-			time.Sleep(time.Second * 2)
 			buildZshConfigs(c, runtime.GOOS, runtime.GOARCH, dryRun)
 		}
 
 		if slices.Contains(c.BuildFiles, ".gitignore") {
-			copyGitIgnore(dryRun)
+			gitignoreSpinner.Start("Creating .gitignore...")
+			time.Sleep(time.Second * 2)
+
+			copyGitIgnore(dryRun, gitignoreSpinner)
 			filesProcessed = append(filesProcessed, ".gitignore")
+
+			gitignoreSpinner.Stop("✅ [CREATED]: .gitignore", 0)
 		}
 
 		if slices.Contains(c.BuildFiles, ".gitconfig") {
-			createGitConfig(c, dryRun)
+			gitconfigSpinner.Start("Creating .gitconfig...")
+			time.Sleep(time.Second * 2)
+
+			createGitConfig(c, dryRun, gitconfigSpinner)
 			filesProcessed = append(filesProcessed, ".gitconfig")
+
+			gitconfigSpinner.Stop("✅ [CREATED]: .gitconfig", 0)
 		}
 
-		spinner.Message("Finalizing files...")
-		time.Sleep(time.Second * 1)
-	}
+		confMsg := fmt.Sprintf("⚙️  [CONFIGURED]: %d packages\n   🗂️  [FILES]: %d created",
+			len(c.SelectedPkgs),
+			len(c.BuildFiles),
+		)
+		tap.Message(confMsg)
 
-	spinner.Stop("Setup Complete!", 0)
-	printSummary(pkgCount, len(c.SelectedPkgs), filesProcessed, dryRun)
+		var displayNames []string
+		for _, f := range c.BuildFiles {
+			displayNames = append(displayNames, "test"+f)
+		}
+		outroMsg := fmt.Sprintf("The following files were created in your home directory:\n   %s",
+			strings.Join(displayNames, ", "))
+		tap.Outro(outroMsg)
+
+	}
 
 	return nil
 }
 
-func createGitConfig(c *config.Config, dryRun bool) {
+func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
 	home, _ := os.UserHomeDir()
 
 	content := fmt.Sprintf(`[init]
@@ -103,40 +212,20 @@ func createGitConfig(c *config.Config, dryRun bool) {
 	postBuffer = 10485760
 `, c.GitBranch, c.GitName, c.GitEmail)
 
-	utils.WriteFiles(home+"/.gitconfig", []byte(content), dryRun)
+	utils.WriteFiles(home+"/.gitconfig", []byte(content), dryRun, spinner)
 }
 
-func copyGitIgnore(dryRun bool) {
+func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
 	home, _ := os.UserHomeDir()
 	sourcePath := ".dotfiles/.gitignore"
 	destPath := path.Join(home, ".gitignore")
 
 	data, err := assets.Files.ReadFile(sourcePath)
 	if err != nil {
-		fmt.Printf("[WARNING]: Could not find %s to copy\n", sourcePath)
+		msg := fmt.Sprintf("⚠️ [WARNING]: Could not find %s to copy", sourcePath)
+		spinner.Message(msg)
 		return
 	}
 
-	utils.WriteFiles(destPath, data, dryRun)
-}
-
-func printSummary(pkgsInstalled int, pkgsConfigured int, files []string, dryRun bool) {
-
-	if pkgsInstalled > 0 {
-		fmt.Printf("📦 [INSTALLED]: %d packages\n", pkgsInstalled)
-	} else {
-		fmt.Printf("⚙️  [CONFIGURED]: %d packages\n", pkgsConfigured)
-	}
-	fmt.Printf("🗂️  [FILES]: %d %s\n", len(files), "generated")
-
-	if dryRun {
-		if len(files) > 0 {
-			var displayNames []string
-			for _, f := range files {
-				displayNames = append(displayNames, "test"+f)
-			}
-			fmt.Printf("[DRY-RUN]: The following files were generated in your home directory:\n   %s\n",
-				strings.Join(displayNames, ", "))
-		}
-	}
+	utils.WriteFiles(destPath, data, dryRun, spinner)
 }
