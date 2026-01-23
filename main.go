@@ -14,9 +14,9 @@ import (
 var version = "dev"
 
 func main() {
-    var dryRun bool
+	var dryRun bool
 	var showVersion bool
-    var uninstall bool
+	var uninstall bool
 
 	flag.BoolVar(&dryRun, "dry-run", false, "Run without making changes")
 	flag.BoolVar(&dryRun, "d", false, "Run without making changes (shorthand)")
@@ -27,30 +27,30 @@ func main() {
 	flag.BoolVar(&uninstall, "uninstall", false, "Remove stash and associated configs")
 	flag.BoolVar(&uninstall, "u", false, "Remove stash (shorthand)")
 
-    flag.Parse()
+	flag.Parse()
 
-    if showVersion {
+	if showVersion {
 		title := fmt.Sprintf("Version: %s", version)
 		banner := ui.DisplayBanner(title)
 
-        utils.HandleVersion(banner)
+		utils.HandleVersion(banner)
 		os.Exit(0)
 	}
 
 	if uninstall {
 		banner := ui.DisplayBanner("Uninstalling stash", "This will remove the binary from your system.")
 
-        utils.HandleUninstall(banner)
-        os.Exit(0)
-	}
-
-	if dryRun {
-		fmt.Println("[DRY-RUN] MODE: No changes will be written to disk.")
+		utils.HandleUninstall(banner)
+		os.Exit(0)
 	}
 
 	conf, err := ui.RunPrompts()
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if dryRun {
+		fmt.Println("[DRY-RUN] MODE: No changes will be written to disk.")
 	}
 
 	err = setup.ExecuteSetup(conf, dryRun)

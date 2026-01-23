@@ -22,12 +22,12 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
 	}
 
 	if runtime.GOOS == "linux" {
-        hasPlugins := slices.Contains(c.SelectedPkgs, "zsh-syntax-highlighting") ||
-                      slices.Contains(c.SelectedPkgs, "zsh-autosuggestions")
-        if hasPlugins && !slices.Contains(c.SelectedPkgs, "zsh") {
-            c.SelectedPkgs = append(c.SelectedPkgs, "zsh")
-        }
-    }
+		hasPlugins := slices.Contains(c.SelectedPkgs, "zsh-syntax-highlighting") ||
+			slices.Contains(c.SelectedPkgs, "zsh-autosuggestions")
+		if hasPlugins && !slices.Contains(c.SelectedPkgs, "zsh") {
+			c.SelectedPkgs = append(c.SelectedPkgs, "zsh")
+		}
+	}
 
 	for _, pkg := range c.SelectedPkgs {
 		if runtime.GOOS != "linux" && pkg != "docker" {
@@ -39,11 +39,11 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
 		case "docker":
 			if runtime.GOOS == "linux" {
 				installDocker(dryRun)
-    		}
+			}
 		case "go":
-    		installGo(dryRun)
+			installGo(dryRun)
 		case "java-android-studio":
-    		installZulu(c.PackageManager, dryRun)
+			installZulu(c.PackageManager, dryRun)
 		case "nvm":
 			utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun)
 		case "pnpm":
@@ -53,12 +53,12 @@ func installSystemPkgs(c *config.Config, dryRun bool) error {
 		}
 
 		if pkg == "zsh" && runtime.GOOS == "linux" {
-            utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun)
-        }
-        if pkg == "bat" && runtime.GOOS == "linux" {
-            aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
-            utils.RunCmd(aliasCmd, dryRun)
-        }
+			utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun)
+		}
+		if pkg == "bat" && runtime.GOOS == "linux" {
+			aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
+			utils.RunCmd(aliasCmd, dryRun)
+		}
 	}
 	return nil
 }
@@ -83,27 +83,26 @@ func installViaPM(pm, pkg string, dryRun bool) {
 	}
 }
 
-
 func installDocker(dryRun bool) {
-    tempScript := path.Join(os.TempDir(), "get-docker.sh")
+	tempScript := path.Join(os.TempDir(), "get-docker.sh")
 
-    if !dryRun {
-        data, err := assets.Files.ReadFile("scripts/get-docker.sh")
-        if err != nil {
-            fmt.Printf("[ERROR]: Failed to read embedded script: %v\n", err)
-            return
-        }
+	if !dryRun {
+		data, err := assets.Files.ReadFile("scripts/get-docker.sh")
+		if err != nil {
+			fmt.Printf("[ERROR]: Failed to read embedded script: %v\n", err)
+			return
+		}
 
-        err = os.WriteFile(tempScript, data, 0755)
-        if err != nil {
-            fmt.Printf("[ERROR]: Failed to write temp script: %v\n", err)
-            return
-        }
+		err = os.WriteFile(tempScript, data, 0755)
+		if err != nil {
+			fmt.Printf("[ERROR]: Failed to write temp script: %v\n", err)
+			return
+		}
 
-        defer os.Remove(tempScript)
-    }
+		defer os.Remove(tempScript)
+	}
 
-    utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun)
+	utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun)
 }
 
 func installGo(dryRun bool) {
@@ -141,14 +140,14 @@ func installZulu(pm string, dryRun bool) {
 
 func ensureMacOSPrereqs(pm string, dryRun bool) {
 	_, err := exec.LookPath("xcode-select")
-    if err != nil {
-        if dryRun {
-            fmt.Println("[DRY-RUN]: Would ensure xcode-select is installed")
-        } else {
-            fmt.Println("📦 [INSTALLING]: Xcode Command Line Tools...")
-            _ = exec.Command("xcode-select", "--install").Run()
-        }
-    }
+	if err != nil {
+		if dryRun {
+			fmt.Println("[DRY-RUN]: Would ensure xcode-select is installed")
+		} else {
+			fmt.Println("📦 [INSTALLING]: Xcode Command Line Tools...")
+			_ = exec.Command("xcode-select", "--install").Run()
+		}
+	}
 
 	switch pm {
 	case "homebrew":
@@ -168,12 +167,18 @@ func installMacPorts(dryRun bool) {
 
 	var osName string
 	switch {
-	case strings.HasPrefix(versionStr, "26"): osName = "26-Tahoe"
-	case strings.HasPrefix(versionStr, "15"): osName = "15-Sequoia"
-	case strings.HasPrefix(versionStr, "14"): osName = "14-Sonoma"
-	case strings.HasPrefix(versionStr, "13"): osName = "13-Ventura"
-	case strings.HasPrefix(versionStr, "12"): osName = "12-Monterey"
-	case strings.HasPrefix(versionStr, "11"): osName = "11-BigSur"
+	case strings.HasPrefix(versionStr, "26"):
+		osName = "26-Tahoe"
+	case strings.HasPrefix(versionStr, "15"):
+		osName = "15-Sequoia"
+	case strings.HasPrefix(versionStr, "14"):
+		osName = "14-Sonoma"
+	case strings.HasPrefix(versionStr, "13"):
+		osName = "13-Ventura"
+	case strings.HasPrefix(versionStr, "12"):
+		osName = "12-Monterey"
+	case strings.HasPrefix(versionStr, "11"):
+		osName = "11-BigSur"
 	default:
 		fmt.Printf("[WARNING]: macOS %s not in auto-install list.\n", versionStr)
 		return

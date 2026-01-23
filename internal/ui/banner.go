@@ -5,7 +5,7 @@ import (
 )
 
 func DisplayBanner(title string, description ...string) string {
-    logo := `
+	logo := `
              /$$                         /$$
             | $$                        | $$
   /$$$$$$$ /$$$$$$    /$$$$$$   /$$$$$$$| $$$$$$$
@@ -17,10 +17,10 @@ func DisplayBanner(title string, description ...string) string {
 
 	content := fmt.Sprintf("%s\n\n%s\n", logo, title)
 
-    if len(description) > 0 {
-        content += fmt.Sprintf("%s\n", description[0])
+	if len(description) > 0 {
+		content += fmt.Sprintf("%s\n", description[0])
 		content += "------------------------------------------------------------------"
-    }
+	}
 
-    return content
+	return content
 }

@@ -5,5 +5,5 @@ import (
 )
 
 func HandleVersion(banner string) {
-    tap.Message(banner)
+	tap.Message(banner)
 }

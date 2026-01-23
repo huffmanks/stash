@@ -57,19 +57,19 @@ func RunCmd(shellCmd string, dryRun bool) {
 }
 
 func WriteFiles(path string, content []byte, dryRun bool) {
-    finalPath := path
+	finalPath := path
 
-    if dryRun {
-        dir := filepath.Dir(path)
-        name := filepath.Base(path)
-        finalPath = filepath.Join(dir, ".test"+name)
-        fmt.Printf("[DRY-RUN]: Writing test file to: %s\n", finalPath)
-    } else {
-        fmt.Printf("[WRITING]: file to %s\n", finalPath)
-    }
+	if dryRun {
+		dir := filepath.Dir(path)
+		name := filepath.Base(path)
+		finalPath = filepath.Join(dir, ".test"+name)
+		fmt.Printf("[DRY-RUN]: Writing test file to: %s\n", finalPath)
+	} else {
+		fmt.Printf("[WRITING]: file to %s\n", finalPath)
+	}
 
-    err := os.WriteFile(finalPath, content, 0644)
-    if err != nil {
-        fmt.Printf("[ERROR]: writing %s - %v\n", finalPath, err)
-    }
+	err := os.WriteFile(finalPath, content, 0644)
+	if err != nil {
+		fmt.Printf("[ERROR]: writing %s - %v\n", finalPath, err)
+	}
 }
