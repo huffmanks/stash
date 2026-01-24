@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -98,4 +99,31 @@ func CommandExists(name string) bool {
 func HasSudoPrivilege() bool {
 	err := exec.Command("sudo", "-n", "true").Run()
 	return err == nil
+}
+
+func GetLatestVersion(version string) string {
+	cmd := `curl -s "https://api.github.com/repos/huffmanks/stash/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'`
+	out, err := exec.Command("sh", "-c", cmd).Output()
+	if err != nil {
+		return version
+	}
+	return string(bytes.TrimSpace(out))
+}
+
+var styles = map[string]string{
+	"reset":  "\033[0m",
+	"bold":   "\033[1m",
+	"dim":    "\033[2m",
+	"unbold": "\033[22m",
+	"orange": "\033[33m",
+	"green":  "\033[32m",
+	"cyan":   "\033[36m",
+}
+
+func Style(s string, keys ...string) string {
+	prefix := ""
+	for _, key := range keys {
+		prefix += styles[key]
+	}
+	return prefix + s + styles["reset"]
 }

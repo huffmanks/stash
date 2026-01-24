@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -8,9 +9,27 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func HandleUpdate(banner string, force bool) error {
+func HandleUpdate(banner string, force bool, latest string) error {
+	ctx := context.Background()
 
-	tap.Message(banner)
+	tap.Intro(banner)
+
+	if !force {
+		msg := fmt.Sprintf("Update to version: [%s]?", Style(latest, "bold", "cyan"))
+		confirmed := tap.Confirm(ctx, tap.ConfirmOptions{
+			Message:      msg,
+			InitialValue: false,
+		})
+
+		if !confirmed {
+			tap.Outro(Style("Aborted. stash remains installed.", "orange"))
+			return nil
+		}
+	} else {
+		msg := fmt.Sprintf("Updating to version: [%s]...", latest)
+		tap.Message(msg)
+	}
+
 	scriptURL := "https://raw.githubusercontent.com/huffmanks/stash/main/install.sh"
 
 	shellCmd := fmt.Sprintf("curl -sSL %s | bash -s --", scriptURL)

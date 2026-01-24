@@ -2,120 +2,239 @@ package ui
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"os"
 	"runtime"
 	"slices"
+	"strings"
 
 	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/utils"
 	"github.com/yarlson/tap"
 )
 
-func RunPrompts(dryRun bool) (*config.Config, error) {
+func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 	ctx := context.Background()
+
+	savedConf, _ := config.Load()
 	conf := &config.Config{}
 
-	message := DisplayBanner(
-		"Welcome to stash!",
-		"This tool will help you install packages and configure your shell.",
-	)
+	title := fmt.Sprintf("Welcome to stash! [%s]", utils.Style(version, "green"))
+	message := DisplayBanner(title, utils.Style("This tool will help you install packages and configure your shell.", "dim"))
 
 	tap.Intro(message)
 
-	conf.Operation = tap.Select(ctx, tap.SelectOptions[string]{
-		Message: "What would you like to do?",
-		Options: []tap.SelectOption[string]{
-			{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
-			{Value: "install", Label: "Install packages", Hint: "bun, docker, go, nvm, pipx, pnpm, etc."},
-		},
-	})
-
-	if conf.Operation == "install" {
-		detectedPM := utils.DetectPackageManager()
-		if detectedPM == "unknown" {
-			conf.PackageManager = tap.Select(ctx, tap.SelectOptions[string]{
-				Message: "Select your package manager:",
+	step := 1
+	for {
+		switch step {
+		case 1:
+			conf.Operation = tap.Select(ctx, tap.SelectOptions[string]{
+				Message: "What would you like to do?",
 				Options: []tap.SelectOption[string]{
-					{Value: "apt", Label: "apt", Hint: "Debian, Ubuntu"},
-					{Value: "dnf", Label: "dnf", Hint: "Fedora, RHEL, AlmaLinux"},
-					{Value: "homebrew", Label: "homebrew", Hint: "macOS"},
-					{Value: "macports", Label: "macports", Hint: "macOS"},
-					{Value: "pacman", Label: "pacman", Hint: "Arch Linux"},
+					{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
+					{Value: "install", Label: "Install packages", Hint: "bun, docker, go, nvm, pipx, pnpm, etc."},
 				},
 			})
-		} else {
-			conf.PackageManager = detectedPM
-		}
-	}
-
-	categories := map[string][]string{
-		"CLI tools": {},
-		"Exports":   {"bun", "docker", "go", "nvm", "pipx", "pnpm"},
-		"Plugins":   {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
-	}
-
-	if conf.Operation == "install" {
-		categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "tree"}
-	}
-
-	if runtime.GOOS == "darwin" {
-		categories["Exports"] = append(categories["Exports"], "java-android-studio")
-	}
-
-	categoryOrder := []string{"CLI tools", "Exports", "Plugins"}
-
-	for _, cat := range categoryOrder {
-		pkgs := categories[cat]
-		if len(pkgs) == 0 {
-			continue
-		}
-
-		slices.Sort(pkgs)
-
-		opts := make([]tap.SelectOption[string], len(pkgs))
-		for i, p := range pkgs {
-			opts[i] = tap.SelectOption[string]{Value: p, Label: p}
-		}
-
-		var initial []string
-
-		switch cat {
-		case "CLI tools":
-			skipDefaults := []string{"fastfetch", "ffmpeg"}
-
-			for _, p := range pkgs {
-				if !slices.Contains(skipDefaults, p) {
-					initial = append(initial, p)
+			step++
+		case 2:
+			if conf.Operation == "install" {
+				detectedPM := utils.DetectPackageManager()
+				var initialPM *string
+				if savedConf.PackageManager != "" {
+					initialPM = &savedConf.PackageManager
+				} else {
+					initialPM = &detectedPM
 				}
+				conf.PackageManager = tap.Select(ctx, tap.SelectOptions[string]{
+					Message:      "Select your package manager:",
+					InitialValue: initialPM,
+					Options: []tap.SelectOption[string]{
+						{Value: "back", Label: "⬅ Back"},
+						{Value: "apt", Label: "apt", Hint: "Debian, Ubuntu"},
+						{Value: "dnf", Label: "dnf", Hint: "Fedora, RHEL, AlmaLinux"},
+						{Value: "homebrew", Label: "homebrew", Hint: "macOS"},
+						{Value: "macports", Label: "macports", Hint: "macOS"},
+						{Value: "pacman", Label: "pacman", Hint: "Arch Linux"},
+					},
+				})
+				if conf.PackageManager == "back" {
+					step = 1
+					continue
+				}
+				step = 4
+				continue
 			}
-		case "Plugins":
-			initial = pkgs
+
+			if conf.Operation == "configure" {
+				conf.BuildFiles = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
+					Message: "What do you want built?",
+					Options: []tap.SelectOption[string]{
+						{Value: ".zshrc", Label: ".zshrc"},
+						{Value: ".zprofile", Label: ".zprofile"},
+						{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
+						{Value: ".gitignore", Label: ".gitignore"},
+					},
+					InitialValues: savedConf.BuildFiles,
+				})
+				if len(conf.BuildFiles) == 0 {
+					tap.Message(utils.Style("At least one file must be selected!", "orange"))
+					continue
+				}
+				step = 3
+			}
+		case 3:
+			if slices.Contains(conf.BuildFiles, ".gitconfig") {
+				conf.GitName = tap.Text(ctx, tap.TextOptions{
+					Message:      "Git Name:",
+					Placeholder:  "John Doe",
+					InitialValue: savedConf.GitName,
+					Validate: func(input string) error {
+						if strings.TrimSpace(input) == "" {
+							return errors.New("Name is required.")
+						}
+						return nil
+					},
+				})
+				conf.GitEmail = tap.Text(ctx, tap.TextOptions{
+					Message:      "Git Email:",
+					Placeholder:  "email@example.com",
+					InitialValue: savedConf.GitEmail,
+					Validate: func(input string) error {
+						if strings.TrimSpace(input) == "" {
+							return errors.New("Email is required.")
+						}
+						if !strings.Contains(input, "@") || !strings.Contains(input, ".") {
+							return errors.New("Email is invalid.")
+						}
+						return nil
+					},
+				})
+				conf.GitBranch = tap.Text(ctx, tap.TextOptions{
+					Message:      "Default Branch:",
+					DefaultValue: "main",
+					Placeholder:  "main",
+					InitialValue: savedConf.GitBranch,
+				})
+			}
+			step = 4
+		case 4:
+
+			if conf.Operation == "configure" && !slices.Contains(conf.BuildFiles, ".zshrc") {
+				step = 5
+				continue
+			}
+
+			categories := map[string][]string{
+				"CLI tools": {},
+				"Exports":   {"bun", "docker", "go", "nvm", "pipx", "pnpm"},
+				"Plugins":   {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
+			}
+
+			if conf.Operation == "install" {
+				categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "tree"}
+			}
+
+			if runtime.GOOS == "darwin" {
+				categories["Exports"] = append(categories["Exports"], "java-android-studio")
+			}
+
+			categoryOrder := []string{"CLI tools", "Exports", "Plugins"}
+
+			for _, cat := range categoryOrder {
+				pkgs := categories[cat]
+				if len(pkgs) == 0 {
+					continue
+				}
+
+				slices.Sort(pkgs)
+
+				opts := make([]tap.SelectOption[string], len(pkgs))
+				for i, p := range pkgs {
+					opts[i] = tap.SelectOption[string]{Value: p, Label: p}
+				}
+
+				var initial []string
+
+				for _, p := range pkgs {
+					if slices.Contains(savedConf.SelectedPkgs, p) {
+						initial = append(initial, p)
+					}
+				}
+
+				selected := tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
+					Message:       "Select " + cat,
+					Options:       opts,
+					InitialValues: initial,
+				})
+
+				conf.SelectedPkgs = append(conf.SelectedPkgs, selected...)
+
+			}
+
+			step = 5
+			continue
+		case 5:
+			headers := []string{"Summary", ""}
+			rows := [][]string{
+				{"Operation", utils.Style(conf.Operation, "bold", "cyan")},
+			}
+
+			if conf.Operation == "install" {
+				rows = append(rows, []string{"Installing with", utils.Style(conf.PackageManager, "bold", "cyan")})
+			}
+
+			if conf.Operation == "configure" {
+				rows = append(rows, []string{"Build files", utils.Style(strings.Join(conf.BuildFiles, ", "), "bold", "cyan")})
+			}
+
+			if len(conf.SelectedPkgs) > 0 {
+				rows = append(rows, []string{"Packages", utils.Style(strings.Join(conf.SelectedPkgs, ", "), "bold", "cyan")})
+			}
+
+			tap.Table(headers, rows, tap.TableOptions{
+				ShowBorders:   true,
+				IncludePrefix: true,
+				HeaderStyle:   tap.TableStyleBold,
+				HeaderColor:   tap.TableColorGreen,
+			})
+
+			conf.Confirm = tap.Confirm(ctx, tap.ConfirmOptions{
+				Message:      "Are you sure you want to proceed?",
+				InitialValue: false,
+			})
+
+			if !conf.Confirm {
+				tap.Outro(utils.Style("Aborted. Nothing has been done.", "orange"))
+				os.Exit(0)
+			}
+
+			step++
+		case 6:
+			goto end
 		}
-
-		selected := tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-			Message: "Select " + cat,
-			Options: opts,
-			// InitialValues: initial,
-		})
-
-		conf.SelectedPkgs = append(conf.SelectedPkgs, selected...)
 	}
 
-	if conf.Operation == "configure" {
-		conf.BuildFiles = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-			Message: "What do you want built?",
-			Options: []tap.SelectOption[string]{
-				{Value: ".zshrc", Label: ".zshrc"},
-				{Value: ".zprofile", Label: ".zprofile"},
-				{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
-				{Value: ".gitignore", Label: ".gitignore"},
-			},
-		})
-	}
+end:
+	if !dryRun {
+		if conf.Operation == "install" {
+			savedConf.PackageManager = conf.PackageManager
+			savedConf.SelectedPkgs = conf.SelectedPkgs
+		}
+		if conf.Operation == "configure" {
+			savedConf.BuildFiles = conf.BuildFiles
 
-	if slices.Contains(conf.BuildFiles, ".gitconfig") {
-		conf.GitName = tap.Text(ctx, tap.TextOptions{Message: "Git Name:", DefaultValue: "John Doe", Placeholder: "John Doe"})
-		conf.GitEmail = tap.Text(ctx, tap.TextOptions{Message: "Git Email:", DefaultValue: "email@example.com", Placeholder: "email@example.com"})
-		conf.GitBranch = tap.Text(ctx, tap.TextOptions{Message: "Default Branch:", DefaultValue: "main", InitialValue: "main", Placeholder: "main"})
+			if slices.Contains(conf.BuildFiles, ".zshrc") {
+				savedConf.SelectedPkgs = conf.SelectedPkgs
+			}
+
+			if slices.Contains(conf.BuildFiles, ".gitconfig") {
+				savedConf.GitName = conf.GitName
+				savedConf.GitEmail = conf.GitEmail
+				savedConf.GitBranch = conf.GitBranch
+			}
+		}
+		savedConf.Save()
 	}
 
 	if dryRun {

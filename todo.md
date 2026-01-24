@@ -1,2 +1,2 @@
-- [ ] If configuring shell and no selectedPkgs but does include a buildFIle exit without creating files.
-- [ ] On update command, add a are you sure and show current version and new version. Also add the force option.
+- [ ] Add a prompt screen at end to review whats going to happen to accept.
+- [ ] non dry-run safes files as test.

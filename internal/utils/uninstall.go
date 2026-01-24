@@ -12,7 +12,7 @@ import (
 func HandleUninstall(banner string) {
 	ctx := context.Background()
 
-	tap.Message(banner)
+	tap.Intro(banner)
 
 	confirmed := tap.Confirm(ctx, tap.ConfirmOptions{
 		Message:      "Are you sure you want to uninstall?",
@@ -20,7 +20,7 @@ func HandleUninstall(banner string) {
 	})
 
 	if !confirmed {
-		tap.Outro("Aborted. stash remains installed.")
+		tap.Outro(Style("Aborted. stash remains installed.", "orange"))
 		return
 	}
 

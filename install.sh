@@ -20,14 +20,14 @@ VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep 
 if command -v stash >/dev/null 2>&1; then
     CURRENT_VERSION=$(stash --version | awk '{print $NF}')
     if [ "$FORCE_INSTALL" = false ] && [ "${CURRENT_VERSION#v}" = "${VERSION#v}" ]; then
-        echo "Stash ${VERSION} is already installed and up to date!"
+        echo "stash ${VERSION} is already installed and up to date!"
         exit 0
     fi
 
     if [ "$FORCE_INSTALL" = true ]; then
-        echo "Force install triggered. Reinstalling Stash ${VERSION}..."
+        echo "Force install triggered. Reinstalling stash ${VERSION}..."
     else
-        echo "Upgrading Stash from ${CURRENT_VERSION} to ${VERSION}..."
+        echo "Upgrading stash from ${CURRENT_VERSION} to ${VERSION}..."
     fi
 fi
 
@@ -44,10 +44,10 @@ BINARY_NAME="${APP_NAME}_${VERSION#v}_${OS}_${ARCH}"
 
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}.tar.gz"
 
-echo "🚀 Downloading Stash ${VERSION} for ${OS}/${ARCH}..."
+rm -f stash stash.tar.gz
+echo "🚀 Downloading stash ${VERSION} for ${OS}/${ARCH}..."
 curl -L -o stash.tar.gz "${DOWNLOAD_URL}"
 
-rm -f stash stash.tar.gz
 tar -xzf stash.tar.gz stash
 chmod +x stash
 
@@ -60,5 +60,5 @@ fi
 
 rm stash.tar.gz
 
-echo "✅ Stash installed to /usr/local/bin/stash"
+echo "✅ stash installed to /usr/local/bin/stash"
 stash --version

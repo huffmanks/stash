@@ -23,8 +23,8 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		return nil
 	}
 
-	if c.Operation == "configure" && len(c.BuildFiles) == 0 {
-		tap.Outro("💡 [INFO]: No shell files selected to configure Exiting.")
+	if c.Operation == "configure" && (len(c.BuildFiles) == 0 || (len(c.SelectedPkgs) == 0 && !slices.ContainsFunc(c.BuildFiles, func(f string) bool { return f != ".zshrc" }))) {
+		tap.Outro("💡 [INFO]:  No shell files or packages selected to configure. Exiting.")
 		return nil
 	}
 
@@ -185,11 +185,16 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		tap.Message(confMsg)
 
 		var displayNames []string
+		prefix := ""
+		if dryRun {
+			prefix = "test"
+		}
+
 		for _, f := range c.BuildFiles {
-			displayNames = append(displayNames, "test"+f)
+			displayNames = append(displayNames, prefix+f)
 		}
 		outroMsg := fmt.Sprintf("The following files were created in your home directory:\n   %s",
-			strings.Join(displayNames, ", "))
+			utils.Style(strings.Join(displayNames, ", "), "cyan"))
 		tap.Outro(outroMsg)
 
 	}

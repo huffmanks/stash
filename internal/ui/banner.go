@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+
+	"github.com/huffmanks/stash/internal/utils"
 )
 
 func DisplayBanner(title string, description ...string) string {
@@ -18,8 +20,8 @@ func DisplayBanner(title string, description ...string) string {
 	content := fmt.Sprintf("%s\n\n%s\n", logo, title)
 
 	if len(description) > 0 {
+		content += utils.Style("----------------------------------------------------\n", "dim")
 		content += fmt.Sprintf("%s\n", description[0])
-		content += "------------------------------------------------------------------"
 	}
 
 	return content
