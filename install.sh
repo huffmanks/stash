@@ -3,7 +3,7 @@
 set -e
 
 REPO="huffmanks/stash"
-
+APP_NAME="stash"
 FORCE_INSTALL=false
 
 for arg in "$@"; do
@@ -40,20 +40,14 @@ elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
     ARCH="arm64"
 fi
 
-if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
-    PREFIX="stash-legacy"
-else
-    PREFIX="stash"
-fi
-
-BINARY_NAME="${PREFIX}_${VERSION#v}_${OS}_${ARCH}"
+BINARY_NAME="${APP_NAME}_${VERSION#v}_${OS}_${ARCH}"
 
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}.tar.gz"
 
 echo "🚀 Downloading Stash ${VERSION} for ${OS}/${ARCH}..."
 curl -L -o stash.tar.gz "${DOWNLOAD_URL}"
 
-rm -f stash
+rm -f stash stash.tar.gz
 tar -xzf stash.tar.gz stash
 chmod +x stash
 
