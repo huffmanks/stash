@@ -1,2 +1,0 @@
-- [ ] Add a prompt screen at end to review whats going to happen to accept.
-- [ ] non dry-run safes files as test.
