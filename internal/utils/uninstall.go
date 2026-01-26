@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/yarlson/tap"
@@ -22,6 +23,21 @@ func HandleUninstall(banner string) {
 	if !confirmed {
 		tap.Outro(Style("🛑 [ABORTED]: stash remains installed.", "orange"))
 		os.Exit(0)
+	}
+
+	if !HasSudoPrivilege() {
+		tap.Message("Root privileges are required for updating stash.")
+
+		cmd := exec.Command("sh", "-c", "sudo", "-v")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+
+		if err := cmd.Run(); err != nil {
+			msg := fmt.Sprintf("❌ %s\n   %s\n      %s\n      %s", Style("[ERROR]: Sudo authentication failed.", "red"), Style("To finish the cleanup, you can manually remove:", "dim"), Style("• /usr/local/bin/stash", "cyan"), Style("• ~/.config/stash", "cyan"))
+			tap.Outro(msg)
+			os.Exit(1)
+		}
 	}
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
