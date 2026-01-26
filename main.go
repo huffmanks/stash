@@ -32,21 +32,21 @@ func main() {
 	}
 
 	flag.Parse()
+	args := flag.Args()
+	command := ""
+
+	if len(args) > 0 {
+		command = args[0]
+	}
 
 	latest := utils.GetLatestVersion(config.Version)
 
-	if *showVersion {
+	if *showVersion || command == "version" {
 		title := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
 		description := fmt.Sprintf(utils.Style("Latest version: [%s]", "bold"), utils.Style(latest, "bold", "cyan"))
 		banner := ui.DisplayBanner(title, description)
 
 		utils.HandleVersion(banner)
-	}
-
-	args := flag.Args()
-	command := ""
-	if len(args) > 0 {
-		command = args[0]
 	}
 
 	switch command {
@@ -66,13 +66,6 @@ func main() {
 		title := fmt.Sprintf("Uninstalling stash: [%s]", utils.Style(config.Version, "bold", "green"))
 		banner := ui.DisplayBanner(title, utils.Style("This will remove the binary from your system.", "dim"))
 		utils.HandleUninstall(banner)
-
-	case "version":
-		title := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
-		description := fmt.Sprintf("Latest version: [%s]", utils.Style(latest, "bold", "cyan"))
-		banner := ui.DisplayBanner(title, description)
-
-		utils.HandleVersion(banner)
 
 	case "help":
 		flag.Usage()

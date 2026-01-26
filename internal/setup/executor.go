@@ -3,8 +3,6 @@ package setup
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"os/exec"
 	"runtime"
 	"slices"
 	"strings"
@@ -35,18 +33,8 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 
 	if c.Operation == "install" && len(c.SelectedPkgs) > 0 {
 
-		if !dryRun && !utils.HasSudoPrivilege() {
-			tap.Message("Root privileges are required for installing packages.")
-
-			cmd := exec.Command("sh", "-c", "sudo", "-v")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			cmd.Stdin = os.Stdin
-
-			if err := cmd.Run(); err != nil {
-				tap.Outro("❌ [ERROR]: Sudo authentication failed. Exiting.")
-				os.Exit(1)
-			}
+		if !dryRun {
+			utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 		}
 
 		if runtime.GOOS == "darwin" {

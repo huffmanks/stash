@@ -92,8 +92,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 		exportFiles = collectFiles("exports")
 		pluginFiles = collectFiles("plugins")
 
-		zshrcBuildMsg := fmt.Sprintf("--- ZSH Build Manifest (%s:%s) ---", displayOS, arch)
-		zshrcSpinner.Start(zshrcBuildMsg)
+		zshrcSpinner.Start("Builidng .zshrc...")
 		time.Sleep(time.Second * 2)
 
 		var finalBuffer bytes.Buffer
@@ -152,7 +151,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 			path.Join(".dotfiles", ".zsh", osFolder, ".zprofile"),
 		}
 
-		zprofileSpinner.Start("🔍 [SEARCHING]: Looking for .zprofile...")
+		zprofileSpinner.Start("Searching for .zprofile...")
 
 		var foundData []byte
 		var foundPath string

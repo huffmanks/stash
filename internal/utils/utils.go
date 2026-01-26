@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -45,16 +46,13 @@ func DetectPackageManager() string {
 
 func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	if dryRun {
-		msg := fmt.Sprintf("___ [DRY-RUN]: Would execute: %s ___", shellCmd)
+		msg := fmt.Sprintf(Style("___ [DRY_RUN]: Would execute: %s ___", "orange"), shellCmd)
 		progress.Message(msg)
 		return nil
 	}
 
 	if strings.HasPrefix(shellCmd, "sudo") {
-		if !HasSudoPrivilege() {
-			progress.Message("⚠️ [SKIPPED]: No sudo session active.")
-			return fmt.Errorf("skipping: sudo required")
-		}
+		PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 	}
 
 	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
@@ -78,7 +76,7 @@ func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinn
 
 	if dryRun {
 		finalPath = filepath.Join(home, "test_"+fileName)
-		msg := fmt.Sprintf("___ [DRY-RUN]: Writing test file to: %s  ___", finalPath)
+		msg := fmt.Sprintf(Style("___ [DRY_RUN]: Writing test file to: %s  ___", "orange"), finalPath)
 		spinner.Message(msg)
 	} else {
 		if _, err := os.Stat(finalPath); err == nil {
@@ -139,9 +137,69 @@ func CommandExists(name string) bool {
 	return err == nil
 }
 
-func HasSudoPrivilege() bool {
+func hasSudoPrivilege() bool {
 	err := exec.Command("sudo", "-n", "true").Run()
 	return err == nil
+}
+
+func PromptForSudo(errorMsg string, command string, useSkipCmd ...bool) {
+	ctx := context.Background()
+
+	skipCmd := false
+	if len(useSkipCmd) > 0 {
+		skipCmd = useSkipCmd[0]
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	if hasSudoPrivilege() {
+		if !skipCmd {
+			_ = exec.Command("sudo", "-S", "sh", "-c", command).Run()
+		}
+		return
+	}
+
+	tap.Message("Authenticate to continue...")
+
+	maxRetries := 3
+	for i := range maxRetries {
+		password := tap.Password(ctx, tap.PasswordOptions{
+			Message: "Enter sudo password:",
+		})
+
+		sudoCmd := exec.Command("sudo", "-S", "sh", "-c", command)
+
+		stdin, err := sudoCmd.StdinPipe()
+		if err != nil {
+			if hasSudoPrivilege() {
+				return
+			}
+			continue
+		}
+
+		go func() {
+			defer stdin.Close()
+			fmt.Fprintln(stdin, password)
+		}()
+
+		if err := sudoCmd.Run(); err != nil {
+
+			time.Sleep(100 * time.Millisecond)
+			if hasSudoPrivilege() {
+				return
+			}
+			if i < maxRetries-1 {
+				tap.Message(Style("⚠️  Invalid password, try again.", "orange"))
+				continue
+			}
+
+			tap.Outro(errorMsg)
+			os.Exit(1)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		return
+	}
 }
 
 func GetLatestVersion(version string) string {

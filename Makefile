@@ -1,20 +1,22 @@
 BINARY_NAME=stash
 DIST_PATH=dist
 
-.PHONY: all clean dev dev-version build release
+.PHONY: all clean dev base build release
 
 all: dev
 
 clean:
 	@echo "🧹 Cleaning up..."
 	rm -rf $(DIST_PATH)
-	mkdir -p $(DIST_PATH)
 
 dev:
 	go run main.go --dry-run || exit 0
 
-dev-version:
-	go run main.go --version
+base:
+	go run main.go $(filter-out $@,$(MAKECMDGOALS))
+
+%:
+	@:
 
 build:
 	goreleaser release --snapshot --clean

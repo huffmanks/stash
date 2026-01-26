@@ -37,7 +37,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		switch {
 		case pkg == "bat":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
-			if err == nil && runtime.GOOS == "linux" && utils.HasSudoPrivilege() {
+			if err == nil && runtime.GOOS == "linux" {
+				utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
 				utils.RunCmd(aliasCmd, dryRun, progress)
 			}
@@ -55,7 +56,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
 		case pkg == "zsh":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
-			if err == nil && runtime.GOOS == "linux" && utils.HasSudoPrivilege() {
+			if err == nil && runtime.GOOS == "linux" {
+				utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 				utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun, progress)
 			}
 		case isZshPlugin:
@@ -179,7 +181,7 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 	_, err := exec.LookPath("xcode-select")
 	if err != nil {
 		if dryRun {
-			progress.Advance(1, "___ [DRY-RUN]: Would ensure xcode-select is installed ___")
+			progress.Advance(1, utils.Style("___ [DRY_RUN]: Would ensure xcode-select is installed ___", "orange"))
 		} else {
 			cmdErr := utils.RunCmd("xcode-select --install", dryRun, progress)
 			if cmdErr != nil {
@@ -261,7 +263,7 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	}
 
 	if dryRun {
-		msg := fmt.Sprintf("___ [DRY-RUN]: %s. Would download: %s ___", versionStr, downloadURL)
+		msg := fmt.Sprintf(utils.Style("___ [DRY_RUN]: %s. Would download: %s ___", "orange"), versionStr, downloadURL)
 		progress.Message(msg)
 		return nil
 	}

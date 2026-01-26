@@ -21,6 +21,10 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 	conf := &config.Config{}
 
 	title := fmt.Sprintf("Welcome to stash! [%s]", utils.Style(version, "green"))
+
+	if dryRun {
+		title += fmt.Sprintf(" [%s]", utils.Style("DRY_RUN", "cyan"))
+	}
 	message := DisplayBanner(title, utils.Style("This tool will help you install packages and configure your shell.", "dim"))
 
 	tap.Intro(message)
@@ -274,7 +278,7 @@ end:
 	}
 
 	if dryRun {
-		tap.Message("___ [DRY-RUN]: No changes will be written to disk. ___")
+		tap.Message(utils.Style("___ [DRY_RUN]: No changes will be made to current files on disk. ___", "orange"))
 	}
 
 	return conf, nil

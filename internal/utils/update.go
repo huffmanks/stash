@@ -15,20 +15,6 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 	tap.Intro(banner)
 
-	if !HasSudoPrivilege() {
-		tap.Message("Root privileges are required for updating stash.")
-
-		cmd := exec.Command("sh", "-c", "sudo", "-v")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-
-		if err := cmd.Run(); err != nil {
-			tap.Outro("❌ [ERROR]: Sudo authentication failed. Exiting.")
-			os.Exit(1)
-		}
-	}
-
 	if !force {
 		msg := fmt.Sprintf("Update to version: [%s]?", Style(latest, "bold", "cyan"))
 		confirmed := tap.Confirm(ctx, tap.ConfirmOptions{
@@ -42,10 +28,12 @@ func HandleUpdate(banner string, force bool, latest string) {
 		}
 	}
 
+	PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
+
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,
 	})
-	spinner.Start(fmt.Sprintf("Updating to version: [%s]...", latest))
+	spinner.Start("Updating...")
 
 	scriptURL := "https://raw.githubusercontent.com/huffmanks/stash/main/install.sh"
 	shellCmd := fmt.Sprintf("curl -sSL %s | bash -s --", scriptURL)
@@ -62,8 +50,11 @@ func HandleUpdate(banner string, force bool, latest string) {
 		os.Exit(1)
 	}
 
-	time.Sleep(time.Second * 1)
-	spinner.Stop(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", latest), 0)
+	time.Sleep(time.Millisecond * 1300)
+	spinner.Stop("Updating...", 0)
+
+	time.Sleep(time.Millisecond * 200)
+	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", latest))
 
 	os.Exit(0)
 }
