@@ -20,7 +20,7 @@ builds:
       - arm64
     main: main.go
     ldflags:
-      - -s -w -X main.version={{.Tag}}
+      - -s -w -X github.com/huffmanks/stash/internal/config.Version={{.Tag}}
 
 archives:
   - id: "archive"

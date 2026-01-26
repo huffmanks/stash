@@ -6,12 +6,11 @@ import (
 	"log"
 	"os"
 
+	"github.com/huffmanks/stash/internal/config"
 	"github.com/huffmanks/stash/internal/setup"
 	"github.com/huffmanks/stash/internal/ui"
 	"github.com/huffmanks/stash/internal/utils"
 )
-
-var version = "v0.0.dev"
 
 func main() {
 	dryRun := flag.Bool("dry-run", false, "Run without making changes")
@@ -34,10 +33,10 @@ func main() {
 
 	flag.Parse()
 
-	latest := utils.GetLatestVersion(version)
+	latest := utils.GetLatestVersion(config.Version)
 
 	if *showVersion {
-		title := fmt.Sprintf("Current version: [%s]", utils.Style(version, "bold", "green"))
+		title := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
 		description := fmt.Sprintf(utils.Style("Latest version: [%s]", "bold"), utils.Style(latest, "bold", "cyan"))
 		banner := ui.DisplayBanner(title, description)
 
@@ -58,18 +57,18 @@ func main() {
 
 		updateCmd.Parse(args[1:])
 
-		description := fmt.Sprintf("Current version: [%s]", utils.Style(version, "bold", "green"))
+		description := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
 		banner := ui.DisplayBanner("Update", description)
 
 		utils.HandleUpdate(banner, *force, latest)
 
 	case "uninstall":
-		title := fmt.Sprintf("Uninstalling stash: [%s]", utils.Style(version, "bold", "green"))
+		title := fmt.Sprintf("Uninstalling stash: [%s]", utils.Style(config.Version, "bold", "green"))
 		banner := ui.DisplayBanner(title, utils.Style("This will remove the binary from your system.", "dim"))
 		utils.HandleUninstall(banner)
 
 	case "version":
-		title := fmt.Sprintf("Current version: [%s]", utils.Style(version, "bold", "green"))
+		title := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
 		description := fmt.Sprintf("Latest version: [%s]", utils.Style(latest, "bold", "cyan"))
 		banner := ui.DisplayBanner(title, description)
 
@@ -79,7 +78,7 @@ func main() {
 		flag.Usage()
 
 	case "":
-		conf, err := ui.RunPrompts(*dryRun, version)
+		conf, err := ui.RunPrompts(*dryRun, config.Version)
 		if err != nil {
 			log.Fatal(err)
 		}

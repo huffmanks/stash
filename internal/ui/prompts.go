@@ -29,8 +29,14 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 	for {
 		switch step {
 		case 1:
+			var initialOp *string
+			if savedConf.Operation != "" {
+				initialOp = &savedConf.Operation
+			}
+
 			conf.Operation = tap.Select(ctx, tap.SelectOptions[string]{
-				Message: "What would you like to do?",
+				Message:      "What would you like to do?",
+				InitialValue: initialOp,
 				Options: []tap.SelectOption[string]{
 					{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
 					{Value: "install", Label: "Install packages", Hint: "bun, docker, go, nvm, pipx, pnpm, etc."},
@@ -75,7 +81,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 						{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
 						{Value: ".gitignore", Label: ".gitignore"},
 					},
-					InitialValues: savedConf.BuildFiles, // this isnt loading initial
+					InitialValues: savedConf.BuildFiles,
 				})
 				if len(conf.BuildFiles) == 0 {
 					tap.Message(utils.Style("At least one file must be selected!", "orange"))
@@ -246,6 +252,8 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 end:
 	if !dryRun {
+		savedConf.Operation = conf.Operation
+
 		if conf.Operation == "install" {
 			savedConf.PackageManager = conf.PackageManager
 		}

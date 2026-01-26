@@ -6,7 +6,11 @@ import (
 	"path/filepath"
 )
 
+var Version = "dev_x.x.x"
+
 type Config struct {
+	App            string   `json:"app"`
+	Version        string   `json:"version"`
 	Operation      string   `json:"operation"`
 	PackageManager string   `json:"package_manager"`
 	BuildFiles     []string `json:"build_files"`
@@ -19,6 +23,10 @@ type Config struct {
 }
 
 func Load() (*Config, error) {
+	var conf Config
+	conf.App = "stash"
+	conf.Version = Version
+
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".config", "stash", "config.json")
 
@@ -30,7 +38,6 @@ func Load() (*Config, error) {
 		}, err
 	}
 
-	var conf Config
 	err = json.Unmarshal(data, &conf)
 
 	return &conf, err
