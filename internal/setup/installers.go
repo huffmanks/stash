@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -19,7 +20,6 @@ import (
 )
 
 func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, failedPkgs *[]string) error {
-
 	for _, pkg := range c.SelectedPkgs {
 		var err error
 
@@ -32,21 +32,37 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			}
 		}
 
-		switch pkg {
-		case "bun":
+		isZshPlugin := strings.HasPrefix(pkg, "zsh-") && runtime.GOOS == "linux"
+
+		switch {
+		case pkg == "bat":
+			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
+			if err == nil && runtime.GOOS == "linux" && utils.HasSudoPrivilege() {
+				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
+				utils.RunCmd(aliasCmd, dryRun, progress)
+			}
+		case pkg == "bun":
 			err = utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun, progress)
-		case "docker":
+		case pkg == "docker":
 			if runtime.GOOS == "linux" {
 				err = installDocker(dryRun, progress)
 			}
-		case "go":
+		case pkg == "go":
 			err = installGo(dryRun, progress)
-		case "java-android-studio":
-			err = installZulu(c.PackageManager, dryRun, progress)
-		case "nvm":
+		case pkg == "nvm":
 			err = utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun, progress)
-		case "pnpm":
+		case pkg == "pnpm":
 			err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
+		case pkg == "zsh":
+			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
+			if err == nil && runtime.GOOS == "linux" && utils.HasSudoPrivilege() {
+				utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun, progress)
+			}
+		case isZshPlugin:
+			repo := fmt.Sprintf("https://github.com/zsh-users/%s", pkg)
+			home, _ := os.UserHomeDir()
+			target := path.Join(home, ".zsh", pkg)
+			err = gitClone(repo, target, dryRun, progress)
 		default:
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 		}
@@ -63,40 +79,52 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 
 		time.Sleep(time.Second * 1)
 
-		if pkg == "zsh" && runtime.GOOS == "linux" {
-			if utils.HasSudoPrivilege() {
-				utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun, progress)
-			}
-		}
-		if pkg == "bat" && runtime.GOOS == "linux" {
-			if utils.HasSudoPrivilege() {
-				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
-				utils.RunCmd(aliasCmd, dryRun, progress)
-			}
-		}
 	}
 	return nil
 }
 
 func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
+	resolvedPkg := utils.ResolvePkgName(pm, pkg)
 	var cmdStr string
+
 	switch pm {
 	case "apt":
-		cmdStr = fmt.Sprintf("sudo apt install -y %s", pkg)
+		cmdStr = fmt.Sprintf("sudo apt install -y %s", resolvedPkg)
 	case "dnf":
-		cmdStr = fmt.Sprintf("sudo dnf install -y %s", pkg)
+		cmdStr = fmt.Sprintf("sudo dnf install -y %s", resolvedPkg)
 	case "homebrew":
-		cmdStr = fmt.Sprintf("brew install %s", pkg)
+		cmdStr = fmt.Sprintf("brew install %s", resolvedPkg)
 	case "macports":
-		cmdStr = fmt.Sprintf("sudo port install %s", pkg)
+		cmdStr = fmt.Sprintf("sudo port install %s", resolvedPkg)
 	case "pacman":
-		cmdStr = fmt.Sprintf("sudo pacman -S --noconfirm %s", pkg)
+		cmdStr = fmt.Sprintf("sudo pacman -S --noconfirm %s", resolvedPkg)
 	}
 
 	if cmdStr == "" {
-		return fmt.Errorf("Unsupported package manager.")
+		return fmt.Errorf("unsupported package manager")
 	}
 
+	return utils.RunCmd(cmdStr, dryRun, progress)
+}
+
+func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) error {
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("git is not installed; required to clone %s", repoURL)
+	}
+
+	parentDir := filepath.Dir(targetPath)
+	if !dryRun {
+		if err := os.MkdirAll(parentDir, 0755); err != nil {
+			return fmt.Errorf("failed to create directory %s: %w", parentDir, err)
+		}
+	}
+
+	if _, err := os.Stat(targetPath); err == nil {
+		progress.Message(fmt.Sprintf("  ↳ %s already exists, skipping clone", filepath.Base(targetPath)))
+		return nil
+	}
+
+	cmdStr := fmt.Sprintf("git clone --depth 1 %s %s", repoURL, targetPath)
 	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
@@ -109,7 +137,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to read docker script: %v", err)
 			progress.Message(msg)
 
-			return fmt.Errorf("Failed to read docker script: %w", err)
+			return fmt.Errorf("read docker script: %w", err)
 		}
 
 		err = os.WriteFile(tempScript, data, 0755)
@@ -117,7 +145,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to write temp script: %v", err)
 			progress.Message(msg)
 
-			return fmt.Errorf("Failed to write temp script: %w", err)
+			return fmt.Errorf("write temp script: %w", err)
 		}
 
 		defer os.Remove(tempScript)
@@ -145,22 +173,6 @@ func installGo(dryRun bool, progress *tap.Progress) error {
 	}
 
 	return utils.RunCmd(cmd, dryRun, progress)
-}
-
-func installZulu(pm string, dryRun bool, progress *tap.Progress) error {
-	var cmdStr string
-	switch pm {
-	case "homebrew":
-		cmdStr = "brew install --cask zulu@17"
-	case "macports":
-		cmdStr = "sudo port install openjdk17-zulu"
-	}
-
-	if cmdStr == "" {
-		return fmt.Errorf("Unsupported package manager for java: %s", pm)
-	}
-
-	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
 func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPkgs *[]string) {
@@ -220,7 +232,7 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	default:
 		msg := fmt.Sprintf("⚠️ [WARNING]: macOS %s not in auto-install list.", versionStr)
 		progress.Message(msg)
-		return fmt.Errorf("macOS %s not in auto-install list.", versionStr)
+		return fmt.Errorf("macOS %s not in auto-install list", versionStr)
 	}
 
 	pkgName := "MacPorts-Latest.pkg"

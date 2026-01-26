@@ -91,6 +91,26 @@ func WriteFiles(path string, content []byte, dryRun bool, spinner *tap.Spinner) 
 	}
 }
 
+var pkgOverrides = map[string]map[string]string{
+	"fd": {
+		"apt": "fd-find",
+		"dnf": "fd-find",
+	},
+	"java-android-studio": {
+		"homebrew": "--cask zulu@17",
+		"macports": "openjdk17-zulu",
+	},
+}
+
+func ResolvePkgName(pm, pkg string) string {
+	if overrides, found := pkgOverrides[pkg]; found {
+		if specificName, ok := overrides[pm]; ok {
+			return specificName
+		}
+	}
+	return pkg
+}
+
 func CommandExists(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil

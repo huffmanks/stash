@@ -1,2 +1,2 @@
 # ----- zsh-autosuggestions -----
-source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source ~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh

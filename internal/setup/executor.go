@@ -31,7 +31,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 	pkgCount := 0
 	extraPkgs := 0
 	needsSystemTools := false
-	var filesProcessed []string
 
 	if c.Operation == "install" && len(c.SelectedPkgs) > 0 {
 
@@ -145,12 +144,10 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		zshProcessed := false
 
 		if slices.Contains(c.BuildFiles, ".zshrc") {
-			filesProcessed = append(filesProcessed, ".zshrc")
 			zshProcessed = true
 		}
 
 		if slices.Contains(c.BuildFiles, ".zprofile") {
-			filesProcessed = append(filesProcessed, ".zprofile")
 			zshProcessed = true
 		}
 
@@ -163,7 +160,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			time.Sleep(time.Second * 2)
 
 			copyGitIgnore(dryRun, gitignoreSpinner)
-			filesProcessed = append(filesProcessed, ".gitignore")
 
 			gitignoreSpinner.Stop("✅ [CREATED]: .gitignore", 0)
 		}
@@ -173,7 +169,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			time.Sleep(time.Second * 2)
 
 			createGitConfig(c, dryRun, gitconfigSpinner)
-			filesProcessed = append(filesProcessed, ".gitconfig")
 
 			gitconfigSpinner.Stop("✅ [CREATED]: .gitconfig", 0)
 		}
