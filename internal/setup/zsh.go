@@ -1,10 +1,12 @@
 package setup
 
 import (
+	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -97,7 +99,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 		zshrcSpinner.Start(zshrcBuildMsg)
 		time.Sleep(time.Second * 2)
 
-		var finalContent []byte
+		var finalBuffer bytes.Buffer
 		exportsHeaderAdded := false
 		pluginsHeaderAdded := false
 
@@ -111,28 +113,21 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 				if err != nil {
 					continue
 				}
-				includeMsg := fmt.Sprintf("✅ [INCLUDE]: %s", f)
-				zshrcSpinner.Message(includeMsg)
+				zshrcSpinner.Message(fmt.Sprintf("✅ [INCLUDE]: %s", f))
 
 				if isExport && !exportsHeaderAdded {
-					header := "# =====================================\n" +
-						"# Exports\n" +
-						"# =====================================\n\n"
-					finalContent = append(finalContent, []byte(header)...)
+					finalBuffer.WriteString("# =====================================\n# Exports\n# =====================================\n\n")
 					exportsHeaderAdded = true
 				}
 
 				if isPlugin && !pluginsHeaderAdded {
-					header := fmt.Sprintf("# =====================================\n"+
-						"# Plugins (%s:%s)\n"+
-						"# =====================================\n\n", displayOS, arch)
-					finalContent = append(finalContent, []byte(header)...)
+					finalBuffer.WriteString(fmt.Sprintf("# =====================================\n# Plugins (%s:%s)\n# =====================================\n\n", displayOS, arch))
 					pluginsHeaderAdded = true
 				}
 
-				finalContent = append(finalContent, data...)
+				finalBuffer.Write(data)
 				if !isPlugin || i < len(files)-1 {
-					finalContent = append(finalContent, '\n')
+					finalBuffer.WriteByte('\n')
 				}
 			}
 		}
@@ -145,7 +140,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
 		zshrcSpinner.Message("--- End ZSH Manifest ---")
 
-		utils.WriteFiles(path.Join(home, ".zshrc"), finalContent, dryRun, zshrcSpinner)
+		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalBuffer.Bytes(), dryRun, zshrcSpinner)
 
 		zshrcSpinner.Stop("✅ [CREATED]: .zshrc", 0)
 	}
@@ -160,16 +155,27 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 			path.Join(".dotfiles", ".zsh", osFolder, ".zprofile"),
 		}
 
+		zprofileSpinner.Start("🔍 [SEARCHING]: Looking for .zprofile...")
+
+		var foundData []byte
+		var foundPath string
+
 		for _, p := range searchPaths {
 			if data, err := assets.Files.ReadFile(p); err == nil {
-				zprofileMsg := fmt.Sprintf("📍 [FOUND]: .zprofile at: %s", p)
-				zprofileSpinner.Start(zprofileMsg)
-				time.Sleep(time.Second * 2)
-
-				utils.WriteFiles(path.Join(home, ".zprofile"), data, dryRun, zprofileSpinner)
-				zprofileSpinner.Stop("✅ [CREATED]: .zprofile", 0)
+				foundData = data
+				foundPath = p
 				break
 			}
+		}
+
+		if foundData != nil {
+			zprofileSpinner.Message(fmt.Sprintf("📍 [FOUND]: .zprofile at: %s", foundPath))
+			time.Sleep(time.Second * 1)
+
+			utils.WriteFiles(filepath.Join(home, ".zprofile"), foundData, dryRun, zprofileSpinner)
+			zprofileSpinner.Stop("✅ [CREATED]: .zprofile", 0)
+		} else {
+			zprofileSpinner.Stop("⚠️ [SKIPPED]: No .zprofile found in search paths", 1)
 		}
 	}
 

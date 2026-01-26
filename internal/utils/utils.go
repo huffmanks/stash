@@ -51,7 +51,7 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 
 	if strings.HasPrefix(shellCmd, "sudo") {
 		if !HasSudoPrivilege() {
-			progress.Message("⏭️ [SKIPPING]: No sudo session active.")
+			progress.Message("⚠️ [SKIPPED]: No sudo session active.")
 			return fmt.Errorf("skipping: sudo required")
 		}
 	}

@@ -1,13 +1,15 @@
 package setup
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/huffmanks/stash/internal/assets"
@@ -160,8 +162,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			time.Sleep(time.Second * 2)
 
 			copyGitIgnore(dryRun, gitignoreSpinner)
-
-			gitignoreSpinner.Stop("✅ [CREATED]: .gitignore", 0)
 		}
 
 		if slices.Contains(c.BuildFiles, ".gitconfig") {
@@ -169,8 +169,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			time.Sleep(time.Second * 2)
 
 			createGitConfig(c, dryRun, gitconfigSpinner)
-
-			gitconfigSpinner.Stop("✅ [CREATED]: .gitconfig", 0)
 		}
 
 		confMsg := fmt.Sprintf("⚙️  [CONFIGURED]: %d packages\n   🗂️  [FILES]: %d created",
@@ -197,35 +195,56 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 	return nil
 }
 
-func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
-	home, _ := os.UserHomeDir()
-
-	content := fmt.Sprintf(`[init]
-	defaultBranch = %s
+const gitConfigTmpl = `[init]
+    defaultBranch = {{.GitBranch}}
 [user]
-	name = %s
-	email = %s
+    name = {{.GitName}}
+    email = {{.GitEmail}}
 [core]
-	excludesfile = ~/.gitignore
+    excludesfile = ~/.gitignore
 
 [http]
-	postBuffer = 10485760
-`, c.GitBranch, c.GitName, c.GitEmail)
+    postBuffer = 10485760
+`
 
-	utils.WriteFiles(home+"/.gitconfig", []byte(content), dryRun, spinner)
-}
-
-func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
+func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
+	spinner.Message(("🔨 [BUILDING]: .gitconfig from template..."))
 	home, _ := os.UserHomeDir()
-	sourcePath := ".dotfiles/.gitignore"
-	destPath := path.Join(home, ".gitignore")
+	destPath := filepath.Join(home, ".gitconfig")
 
-	data, err := assets.Files.ReadFile(sourcePath)
+	tmpl, err := template.New("gitconfig").Parse(gitConfigTmpl)
 	if err != nil {
-		msg := fmt.Sprintf("⚠️ [WARNING]: Could not find %s to copy", sourcePath)
-		spinner.Message(msg)
+		spinner.Stop("❌ [FAILED]: creating .gitconfig", 1)
 		return
 	}
 
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, c); err != nil {
+		spinner.Stop("❌ [FAILED]: creating .gitconfig", 1)
+		return
+	}
+
+	time.Sleep(time.Second * 1)
+	utils.WriteFiles(destPath, buf.Bytes(), dryRun, spinner)
+	spinner.Stop("✅ [CREATED]: .gitconfig", 0)
+}
+
+func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
+	spinner.Message(("🔍 [SEARCHING]: Looking for .gitignore..."))
+	home, _ := os.UserHomeDir()
+	sourcePath := ".dotfiles/git/.gitignore"
+	destPath := filepath.Join(home, ".gitignore")
+
+	data, err := assets.Files.ReadFile(sourcePath)
+	if err != nil {
+		spinner.Stop(fmt.Sprintf("⚠️ [SKIPPED]: No .gitignore found at: %s", sourcePath), 1)
+		return
+	}
+
+	spinner.Message(fmt.Sprintf("📍 [FOUND]: .gitignore at: %s", sourcePath))
+	time.Sleep(time.Second * 1)
+
 	utils.WriteFiles(destPath, data, dryRun, spinner)
+
+	spinner.Stop("✅ [CREATED]: .gitignore", 0)
 }
