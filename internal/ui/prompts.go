@@ -75,7 +75,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 						{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
 						{Value: ".gitignore", Label: ".gitignore"},
 					},
-					InitialValues: savedConf.BuildFiles,
+					InitialValues: savedConf.BuildFiles, // this isnt loading initial
 				})
 				if len(conf.BuildFiles) == 0 {
 					tap.Message(utils.Style("At least one file must be selected!", "orange"))
@@ -157,7 +157,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				var initial []string
 
 				for _, p := range pkgs {
-					if slices.Contains(savedConf.SelectedPkgs, p) {
+					if conf.Operation == "configure" && slices.Contains(savedConf.SelectedPkgs, p) {
 						initial = append(initial, p)
 					}
 				}
@@ -192,21 +192,50 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				rows = append(rows, []string{"Packages", utils.Style(strings.Join(conf.SelectedPkgs, ", "), "bold", "cyan")})
 			}
 
-			tap.Table(headers, rows, tap.TableOptions{
-				ShowBorders:   true,
-				IncludePrefix: true,
-				HeaderStyle:   tap.TableStyleBold,
-				HeaderColor:   tap.TableColorGreen,
-			})
+			hasPackages := len(conf.SelectedPkgs) > 0
+			includesZshrc := slices.Contains(conf.BuildFiles, ".zshrc")
 
-			conf.Confirm = tap.Confirm(ctx, tap.ConfirmOptions{
-				Message:      "Are you sure you want to proceed?",
-				InitialValue: false,
-			})
+			showSummary := (hasPackages && (conf.Operation == "install" || includesZshrc)) ||
+				(conf.Operation == "configure" && !includesZshrc)
 
-			if !conf.Confirm {
-				tap.Outro(utils.Style("Aborted. Nothing has been done.", "orange"))
-				os.Exit(0)
+			if showSummary {
+				tap.Table(headers, rows, tap.TableOptions{
+					ShowBorders:   true,
+					IncludePrefix: true,
+					HeaderStyle:   tap.TableStyleBold,
+					HeaderColor:   tap.TableColorGreen,
+				})
+
+				conf.Confirm = tap.Confirm(ctx, tap.ConfirmOptions{
+					Message:      "Are you sure you want to proceed?",
+					InitialValue: false,
+				})
+
+				if !conf.Confirm {
+					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
+					os.Exit(0)
+				}
+			} else {
+				var msg string
+				if conf.Operation == "install" || (!hasPackages && includesZshrc) {
+					msg = utils.Style("No packages selected, do you want to start over?", "orange")
+				} else {
+					msg = utils.Style("No build files selected, do you want to start over?", "orange")
+				}
+
+				conf.StartOver = tap.Confirm(ctx, tap.ConfirmOptions{
+					Message:      msg,
+					InitialValue: true,
+				})
+
+				if !conf.StartOver {
+					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
+					os.Exit(0)
+				}
+
+				conf.SelectedPkgs = []string{}
+				step = 1
+				continue
 			}
 
 			step++
@@ -219,7 +248,6 @@ end:
 	if !dryRun {
 		if conf.Operation == "install" {
 			savedConf.PackageManager = conf.PackageManager
-			savedConf.SelectedPkgs = conf.SelectedPkgs
 		}
 		if conf.Operation == "configure" {
 			savedConf.BuildFiles = conf.BuildFiles
@@ -238,7 +266,7 @@ end:
 	}
 
 	if dryRun {
-		tap.Message("___ [DRY-RUN]: No changes will be written to disk.")
+		tap.Message("___ [DRY-RUN]: No changes will be written to disk. ___")
 	}
 
 	return conf, nil

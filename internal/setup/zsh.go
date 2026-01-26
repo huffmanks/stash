@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"os"
 	"path"
-	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -19,7 +17,6 @@ import (
 
 func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
-	home, _ := os.UserHomeDir()
 	osFolder := map[string]string{"darwin": "macos"}[goos]
 	if osFolder == "" {
 		osFolder = goos
@@ -140,7 +137,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 
 		zshrcSpinner.Message("--- End ZSH Manifest ---")
 
-		utils.WriteFiles(filepath.Join(home, ".zshrc"), finalBuffer.Bytes(), dryRun, zshrcSpinner)
+		utils.WriteFiles(".zshrc", finalBuffer.Bytes(), dryRun, zshrcSpinner)
 
 		zshrcSpinner.Stop("✅ [CREATED]: .zshrc", 0)
 	}
@@ -172,7 +169,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 			zprofileSpinner.Message(fmt.Sprintf("📍 [FOUND]: .zprofile at: %s", foundPath))
 			time.Sleep(time.Second * 1)
 
-			utils.WriteFiles(filepath.Join(home, ".zprofile"), foundData, dryRun, zprofileSpinner)
+			utils.WriteFiles(".zprofile", foundData, dryRun, zprofileSpinner)
 			zprofileSpinner.Stop("✅ [CREATED]: .zprofile", 0)
 		} else {
 			zprofileSpinner.Stop("⚠️ [SKIPPED]: No .zprofile found in search paths", 1)

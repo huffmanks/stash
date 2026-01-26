@@ -42,7 +42,6 @@ func main() {
 		banner := ui.DisplayBanner(title, description)
 
 		utils.HandleVersion(banner)
-		os.Exit(0)
 	}
 
 	args := flag.Args()
@@ -62,12 +61,7 @@ func main() {
 		description := fmt.Sprintf("Current version: [%s]", utils.Style(version, "bold", "green"))
 		banner := ui.DisplayBanner("Update", description)
 
-		err := utils.HandleUpdate(banner, *force, latest)
-		if err != nil {
-			fmt.Printf("❌ [ERROR]: Update failed: %v\n", err)
-			os.Exit(1)
-		}
-		os.Exit(0)
+		utils.HandleUpdate(banner, *force, latest)
 
 	case "uninstall":
 		title := fmt.Sprintf("Uninstalling stash: [%s]", utils.Style(version, "bold", "green"))
@@ -80,7 +74,6 @@ func main() {
 		banner := ui.DisplayBanner(title, description)
 
 		utils.HandleVersion(banner)
-		os.Exit(0)
 
 	case "help":
 		flag.Usage()

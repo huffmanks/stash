@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -21,12 +20,12 @@ import (
 func ExecuteSetup(c *config.Config, dryRun bool) error {
 
 	if c.Operation == "install" && len(c.SelectedPkgs) == 0 {
-		tap.Outro("💡 [INFO]: No packages selected to install. Exiting.")
+		tap.Outro(utils.Style("💡 [INFO]: No packages selected to install. Exiting.", "orange"))
 		return nil
 	}
 
 	if c.Operation == "configure" && (len(c.BuildFiles) == 0 || (len(c.SelectedPkgs) == 0 && !slices.ContainsFunc(c.BuildFiles, func(f string) bool { return f != ".zshrc" }))) {
-		tap.Outro("💡 [INFO]:  No shell files or packages selected to configure. Exiting.")
+		tap.Outro(utils.Style("💡 [INFO]:  No shell files or packages selected to configure. Exiting.", "orange"))
 		return nil
 	}
 
@@ -209,8 +208,6 @@ const gitConfigTmpl = `[init]
 
 func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
 	spinner.Message(("🔨 [BUILDING]: .gitconfig from template..."))
-	home, _ := os.UserHomeDir()
-	destPath := filepath.Join(home, ".gitconfig")
 
 	tmpl, err := template.New("gitconfig").Parse(gitConfigTmpl)
 	if err != nil {
@@ -225,15 +222,13 @@ func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
 	}
 
 	time.Sleep(time.Second * 1)
-	utils.WriteFiles(destPath, buf.Bytes(), dryRun, spinner)
+	utils.WriteFiles(".gitconfig", buf.Bytes(), dryRun, spinner)
 	spinner.Stop("✅ [CREATED]: .gitconfig", 0)
 }
 
 func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
 	spinner.Message(("🔍 [SEARCHING]: Looking for .gitignore..."))
-	home, _ := os.UserHomeDir()
 	sourcePath := ".dotfiles/git/.gitignore"
-	destPath := filepath.Join(home, ".gitignore")
 
 	data, err := assets.Files.ReadFile(sourcePath)
 	if err != nil {
@@ -244,7 +239,7 @@ func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
 	spinner.Message(fmt.Sprintf("📍 [FOUND]: .gitignore at: %s", sourcePath))
 	time.Sleep(time.Second * 1)
 
-	utils.WriteFiles(destPath, data, dryRun, spinner)
+	utils.WriteFiles(".gitignore", data, dryRun, spinner)
 
 	spinner.Stop("✅ [CREATED]: .gitignore", 0)
 }

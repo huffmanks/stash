@@ -14,12 +14,14 @@ type Config struct {
 	GitEmail       string   `json:"git_email"`
 	GitBranch      string   `json:"git_branch"`
 	SelectedPkgs   []string `json:"selected_pkgs"`
-	Confirm        bool
+	Confirm        bool     `json:"-"`
+	StartOver      bool     `json:"-"`
 }
 
 func Load() (*Config, error) {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".stash_config.json")
+	path := filepath.Join(home, ".config", "stash", "config.json")
+
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return &Config{
@@ -27,15 +29,24 @@ func Load() (*Config, error) {
 			BuildFiles:   []string{},
 		}, err
 	}
+
 	var conf Config
 	err = json.Unmarshal(data, &conf)
+
 	return &conf, err
 }
 
 func (c *Config) Save() error {
 	home, _ := os.UserHomeDir()
-	path := filepath.Join(home, ".stash_config.json")
+	configDir := filepath.Join(home, ".config", "stash")
+	path := filepath.Join(configDir, "config.json")
+
+	if _, err := os.Stat(configDir); os.IsNotExist(err) {
+		os.MkdirAll(configDir, 0755)
+	}
+
 	data, _ := json.MarshalIndent(c, "", "  ")
+
 	return os.WriteFile(path, data, 0644)
 }
 

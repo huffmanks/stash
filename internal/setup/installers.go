@@ -134,7 +134,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 	if !dryRun {
 		data, err := assets.Files.ReadFile("scripts/get-docker.sh")
 		if err != nil {
-			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to read docker script: %v", err)
+			msg := fmt.Sprintf("❌ [ERROR]: Failed to read docker script: %v", err)
 			progress.Message(msg)
 
 			return fmt.Errorf("read docker script: %w", err)
@@ -142,7 +142,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 
 		err = os.WriteFile(tempScript, data, 0755)
 		if err != nil {
-			msg := fmt.Sprintf("⛔️ [ERROR]: Failed to write temp script: %v", err)
+			msg := fmt.Sprintf("❌ [ERROR]: Failed to write temp script: %v", err)
 			progress.Message(msg)
 
 			return fmt.Errorf("write temp script: %w", err)
@@ -179,7 +179,7 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 	_, err := exec.LookPath("xcode-select")
 	if err != nil {
 		if dryRun {
-			progress.Advance(1, "___ [DRY-RUN]: Would ensure xcode-select is installed")
+			progress.Advance(1, "___ [DRY-RUN]: Would ensure xcode-select is installed ___")
 		} else {
 			cmdErr := utils.RunCmd("xcode-select --install", dryRun, progress)
 			if cmdErr != nil {
@@ -261,7 +261,7 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	}
 
 	if dryRun {
-		msg := fmt.Sprintf("___ [DRY-RUN]: %s. Would download: %s", versionStr, downloadURL)
+		msg := fmt.Sprintf("___ [DRY-RUN]: %s. Would download: %s ___", versionStr, downloadURL)
 		progress.Message(msg)
 		return nil
 	}

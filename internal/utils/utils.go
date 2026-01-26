@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/yarlson/tap"
 )
@@ -44,7 +45,7 @@ func DetectPackageManager() string {
 
 func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	if dryRun {
-		msg := fmt.Sprintf("___ [DRY-RUN]: Would execute: %s", shellCmd)
+		msg := fmt.Sprintf("___ [DRY-RUN]: Would execute: %s ___", shellCmd)
 		progress.Message(msg)
 		return nil
 	}
@@ -63,30 +64,52 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	_, err := cmd.CombinedOutput()
 
 	if err != nil {
-		progress.Message(fmt.Sprintf("⛔️ [ERROR]: %s", shellCmd))
+		progress.Message(fmt.Sprintf("❌ [ERROR]: %s", shellCmd))
 		return err
 	}
 
 	return nil
 }
 
-func WriteFiles(path string, content []byte, dryRun bool, spinner *tap.Spinner) {
-	finalPath := path
+func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinner) {
+
+	home, _ := os.UserHomeDir()
+	finalPath := filepath.Join(home, fileName)
 
 	if dryRun {
-		dir := filepath.Dir(path)
-		name := filepath.Base(path)
-		finalPath = filepath.Join(dir, ".test"+name)
-		msg := fmt.Sprintf("___ [DRY-RUN]: Writing test file to: %s", finalPath)
+		finalPath = filepath.Join(home, "test_"+fileName)
+		msg := fmt.Sprintf("___ [DRY-RUN]: Writing test file to: %s  ___", finalPath)
 		spinner.Message(msg)
 	} else {
+		if _, err := os.Stat(finalPath); err == nil {
+			now := time.Now()
+			timestamp := now.Format("20060102_150405")
+
+			bakDir := filepath.Join(home, ".config", "stash")
+			if err := os.MkdirAll(bakDir, 0755); err != nil {
+				spinner.Message(fmt.Sprintf("❌ [ERROR]: Could not create backup dir: %v", err))
+			}
+
+			bakFileName := fmt.Sprintf("bak_%s_%s", timestamp, fileName)
+			bakPath := filepath.Join(bakDir, bakFileName)
+
+			if err := os.Rename(finalPath, bakPath); err == nil {
+				os.Chtimes(bakPath, now, now)
+				msg := fmt.Sprintf("🚚 [MOVED]: Existing file moved to %s", bakPath)
+				spinner.Message(msg)
+			} else {
+				msg := fmt.Sprintf("⚠️ %s %v", Style("[WARNING]: Could not backup existing file:", "orange"), err)
+				spinner.Message(msg)
+			}
+		}
+
 		msg := fmt.Sprintf("📝 [WRITING]: file to %s", finalPath)
 		spinner.Message(msg)
 	}
 
 	err := os.WriteFile(finalPath, content, 0644)
 	if err != nil {
-		errMsg := fmt.Sprintf("⛔️ [ERROR]: writing %s - %v", finalPath, err)
+		errMsg := fmt.Sprintf("❌ [ERROR]: writing %s - %v", finalPath, err)
 		spinner.Message(errMsg)
 	}
 }
@@ -135,15 +158,23 @@ var styles = map[string]string{
 	"bold":   "\033[1m",
 	"dim":    "\033[2m",
 	"unbold": "\033[22m",
-	"orange": "\033[33m",
+	"red":    "\033[31m",
 	"green":  "\033[32m",
+	"orange": "\033[33m",
 	"cyan":   "\033[36m",
 }
 
 func Style(s string, keys ...string) string {
-	prefix := ""
+	var builder strings.Builder
+
 	for _, key := range keys {
-		prefix += styles[key]
+		if code, ok := styles[key]; ok {
+			builder.WriteString(code)
+		}
 	}
-	return prefix + s + styles["reset"]
+
+	builder.WriteString(s)
+	builder.WriteString(styles["reset"])
+
+	return builder.String()
 }

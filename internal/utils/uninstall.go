@@ -20,8 +20,8 @@ func HandleUninstall(banner string) {
 	})
 
 	if !confirmed {
-		tap.Outro(Style("Aborted. stash remains installed.", "orange"))
-		return
+		tap.Outro(Style("🛑 [ABORTED]: stash remains installed.", "orange"))
+		os.Exit(0)
 	}
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
@@ -33,11 +33,12 @@ func HandleUninstall(banner string) {
 
 	err := os.Remove("/usr/local/bin/stash")
 	if err != nil {
-		msg := fmt.Sprintf("Error removing binary: %v\n   Note: You may need to run this as root: sudo stash --uninstall", err)
+		msg := fmt.Sprintf("❌ %s\n   %s\n      %s\n      %s", Style("[ERROR]: Failed to remove the binary.", "red"), Style("To finish the cleanup, you can manually remove:", "dim"), Style("• /usr/local/bin/stash", "cyan"), Style("• ~/.config/stash", "cyan"))
 		spinner.Stop(msg, 2)
 
-		return
+		os.Exit(1)
 	}
 
-	spinner.Stop("stash has been removed successfully.", 0)
+	spinner.Stop("✅ [UNINSTALLED]: stash has been removed successfully.", 0)
+	os.Exit(0)
 }
