@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/huffmanks/stash/internal/config"
 	"github.com/yarlson/tap"
 )
 
@@ -57,12 +58,31 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 
 	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
 	progress.Message(executingMsg)
-	cmd := exec.Command("sh", "-c", shellCmd)
 
-	_, err := cmd.CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", shellCmd)
+	cmd.Stdin = nil
+
+	output, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		msg := fmt.Sprintf("❌ [ERROR]: %s took to long and timed out after 30s", shellCmd)
+		progress.Message(msg)
+		return fmt.Errorf("%s", msg)
+	}
 
 	if err != nil {
-		progress.Message(fmt.Sprintf("❌ [ERROR]: %s", shellCmd))
+		cleanOut := strings.TrimSpace(string(output))
+		lines := strings.Split(cleanOut, "\n")
+		shortErr := lines[len(lines)-1]
+
+		if len(shortErr) > 100 {
+			shortErr = shortErr[:97] + "..."
+		}
+
+		progress.Message(fmt.Sprintf("❌ [ERROR]: %s\n%s", shellCmd, shortErr))
 		return err
 	}
 
@@ -110,6 +130,48 @@ func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinn
 		errMsg := fmt.Sprintf("❌ [ERROR]: writing %s - %v", finalPath, err)
 		spinner.Message(errMsg)
 	}
+}
+
+func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
+	home, _ := os.UserHomeDir()
+	stashDir := filepath.Join(home, ".config", "stash")
+	pattern := filepath.Join(stashDir, "bak*")
+
+	res := config.DeleteResult{}
+
+	files, err := filepath.Glob(pattern)
+	if err != nil {
+		spinner.Message(fmt.Sprintf("❌ [ERROR]: Glob pattern failed: %v", err))
+		return res
+	}
+
+	if len(files) == 0 {
+		spinner.Message("‼️ [EMPTY]: No backup files found to delete.")
+		return res
+	}
+
+	for _, f := range files {
+		base := filepath.Base(f)
+		time.Sleep(time.Millisecond * 100)
+
+		if dryRun {
+			msg := fmt.Sprintf(Style("___ [DRY_RUN]: Would delete: %s ___", "orange"), base)
+			spinner.Message(msg)
+			res.Deleted = append(res.Deleted, base)
+			continue
+		}
+
+		err := os.Remove(f)
+		if err != nil {
+			spinner.Message(fmt.Sprintf("❌ [ERROR]: %s", base))
+			res.Failed = append(res.Failed, fmt.Sprintf("%s (%v)", base, err))
+		} else {
+			spinner.Message(fmt.Sprintf("🗑️  [DELETED]: %s", base))
+			res.Deleted = append(res.Deleted, base)
+		}
+	}
+
+	return res
 }
 
 var pkgOverrides = map[string]map[string]string{
@@ -235,4 +297,14 @@ func Style(s string, keys ...string) string {
 	builder.WriteString(styles["reset"])
 
 	return builder.String()
+}
+
+func IsAndroid() bool {
+	if version, err := os.ReadFile("/proc/version"); err == nil {
+		if strings.Contains(strings.ToLower(string(version)), "android") {
+			return true
+		}
+	}
+
+	return false
 }

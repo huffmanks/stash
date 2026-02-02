@@ -64,3 +64,8 @@ type MacPortRelease struct {
 		BrowserDownloadURL string `json:"browser_download_url"`
 	} `json:"assets"`
 }
+
+type DeleteResult struct {
+	Deleted []string
+	Failed  []string
+}

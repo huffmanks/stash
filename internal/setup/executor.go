@@ -53,9 +53,17 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		}
 
 		if runtime.GOOS == "linux" {
-			hasPlugins := slices.Contains(c.SelectedPkgs, "zsh-syntax-highlighting") ||
-				slices.Contains(c.SelectedPkgs, "zsh-autosuggestions")
-			if hasPlugins && !slices.Contains(c.SelectedPkgs, "zsh") {
+			plugins := []string{"zsh-syntax-highlighting", "zsh-autosuggestions"}
+			hasPlugin := false
+
+			for _, p := range plugins {
+				if slices.Contains(c.SelectedPkgs, p) {
+					hasPlugin = true
+					break
+				}
+			}
+
+			if hasPlugin && !slices.Contains(c.SelectedPkgs, "zsh") {
 				c.SelectedPkgs = append(c.SelectedPkgs, "zsh")
 				extraPkgs++
 			}
@@ -176,6 +184,50 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		outroMsg := fmt.Sprintf("The following files were created in your home directory:\n   %s",
 			utils.Style(strings.Join(displayNames, ", "), "cyan"))
 		tap.Outro(outroMsg)
+
+	}
+
+	if c.Operation == "delete" {
+		spinner := tap.NewSpinner(tap.SpinnerOptions{
+			Delay: time.Millisecond * 100,
+		})
+
+		spinner.Start("Scanning for backups...")
+
+		report := utils.DeleteFiles(dryRun, spinner)
+
+		time.Sleep(time.Millisecond * 500)
+		spinner.Stop("Cleanup process finished", 0)
+
+		var outroMsg string
+
+		if len(report.Failed) > 0 {
+			outroMsg += fmt.Sprintf(utils.Style("❌ [FAILED]: %d\n\n", "red"), len(report.Failed))
+
+			for _, f := range report.Failed {
+				outroMsg += fmt.Sprintf(utils.Style("     - %s\n", "cyan"), f)
+			}
+			outroMsg += "\n"
+		}
+
+		if len(report.Deleted) > 0 {
+			header := fmt.Sprintf("🗑️  [DELETED]: %d\n\n", len(report.Deleted))
+			if dryRun {
+				header = fmt.Sprintf("___ [DRY_RUN]: Would delete: %d ___\n\n", len(report.Deleted))
+			}
+			outroMsg += fmt.Sprintf(utils.Style("%s", "orange"), header)
+
+			for _, f := range report.Deleted {
+				outroMsg += fmt.Sprintf(utils.Style("     - %s\n", "cyan"), f)
+			}
+
+		}
+
+		if len(report.Failed) == 0 && len(report.Deleted) == 0 {
+			outroMsg = "✨ [EMPTY]: No files found to delete."
+		}
+
+		tap.Outro(strings.TrimSpace(outroMsg))
 
 	}
 

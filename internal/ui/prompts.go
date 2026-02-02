@@ -38,13 +38,16 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				initialOp = &savedConf.Operation
 			}
 
+			options := []tap.SelectOption[string]{
+				{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
+				{Value: "install", Label: "Install packages", Hint: "Using your package manager"},
+				{Value: "delete", Label: "Delete backup files", Hint: "~/.config/stash/bak**"},
+			}
+
 			conf.Operation = tap.Select(ctx, tap.SelectOptions[string]{
 				Message:      "What would you like to do?",
 				InitialValue: initialOp,
-				Options: []tap.SelectOption[string]{
-					{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
-					{Value: "install", Label: "Install packages", Hint: "bun, docker, go, nvm, pipx, pnpm, etc."},
-				},
+				Options:      options,
 			})
 			step++
 		case 2:
@@ -77,21 +80,38 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 			}
 
 			if conf.Operation == "configure" {
+				options := []tap.SelectOption[string]{
+					{Value: ".zshrc", Label: ".zshrc"},
+					{Value: ".zprofile", Label: ".zprofile"},
+					{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
+					{Value: ".gitignore", Label: ".gitignore"},
+				}
+
 				conf.BuildFiles = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
-					Message: "What do you want built?",
-					Options: []tap.SelectOption[string]{
-						{Value: ".zshrc", Label: ".zshrc"},
-						{Value: ".zprofile", Label: ".zprofile"},
-						{Value: ".gitconfig", Label: ".gitconfig", Hint: "Requires name and email"},
-						{Value: ".gitignore", Label: ".gitignore"},
-					},
+					Message:       "What do you want built?",
+					Options:       options,
 					InitialValues: savedConf.BuildFiles,
 				})
+
 				if len(conf.BuildFiles) == 0 {
 					tap.Message(utils.Style("At least one file must be selected!", "orange"))
 					continue
 				}
 				step = 3
+			}
+
+			if conf.Operation == "delete" {
+				conf.Confirm = tap.Confirm(ctx, tap.ConfirmOptions{
+					Message:      "Are you sure you want to delete backup files?",
+					InitialValue: false,
+				})
+
+				if !conf.Confirm {
+					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
+					os.Exit(0)
+				}
+
+				step = 6
 			}
 		case 3:
 			if slices.Contains(conf.BuildFiles, ".gitconfig") {

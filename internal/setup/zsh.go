@@ -32,6 +32,11 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool) {
 		displayOS = "macOS"
 	}
 
+	if utils.IsAndroid() {
+		archFolder = "android"
+		displayOS = "Android"
+	}
+
 	if slices.Contains(c.BuildFiles, ".zshrc") {
 		zshrcSpinner := tap.NewSpinner(tap.SpinnerOptions{
 			Delay: time.Millisecond * 100,
