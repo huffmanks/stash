@@ -26,9 +26,10 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		if runtime.GOOS != "linux" && pkg != "docker" {
 			msg := fmt.Sprintf("📦 Installing %s...", pkg)
 			progress.Message(msg)
+			time.Sleep(time.Millisecond * 100)
 
 			if dryRun {
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Millisecond * 500)
 			}
 		}
 
@@ -38,7 +39,6 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		case pkg == "bat":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 			if err == nil && runtime.GOOS == "linux" {
-				utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
 				utils.RunCmd(aliasCmd, dryRun, progress)
 			}
@@ -57,7 +57,6 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		case pkg == "zsh":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 			if err == nil && runtime.GOOS == "linux" {
-				utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 				utils.RunCmd("sudo chsh -s $(which zsh) $(whoami)", dryRun, progress)
 			}
 		case isZshPlugin:
@@ -79,7 +78,7 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			progress.Advance(1, fmt.Sprintf("✅ [%s]: installed", pkg))
 		}
 
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 500)
 
 	}
 	return nil
@@ -103,7 +102,7 @@ func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 	}
 
 	if cmdStr == "" {
-		return fmt.Errorf("unsupported package manager")
+		return fmt.Errorf("⚠️ [WARNING]: Unsupported package manager.")
 	}
 
 	return utils.RunCmd(cmdStr, dryRun, progress)
@@ -111,19 +110,30 @@ func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 
 func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) error {
 	if _, err := exec.LookPath("git"); err != nil {
-		return fmt.Errorf("git is not installed; required to clone %s", repoURL)
+		msg := fmt.Sprintf("❌ [ERROR]: git is not installed; %s", repoURL)
+		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
+
+		return fmt.Errorf("%s", msg)
 	}
 
 	parentDir := filepath.Dir(targetPath)
 	if !dryRun {
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
-			return fmt.Errorf("failed to create directory %s: %w", parentDir, err)
+			msg := fmt.Sprintf("❌ [FAILED]: to create directory: %s", parentDir)
+			progress.Message(msg)
+			time.Sleep(time.Millisecond * 100)
+
+			return fmt.Errorf("%s", msg)
 		}
 	}
 
 	if _, err := os.Stat(targetPath); err == nil {
-		progress.Message(fmt.Sprintf("  ↳ %s already exists, skipping clone", filepath.Base(targetPath)))
-		return nil
+		msg := fmt.Sprintf("⚠️ [SKIPPED]: %s already exists.", filepath.Base(targetPath))
+		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
+
+		return fmt.Errorf("%s", msg)
 	}
 
 	cmdStr := fmt.Sprintf("git clone --depth 1 %s %s", repoURL, targetPath)
@@ -138,6 +148,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 		if err != nil {
 			msg := fmt.Sprintf("❌ [ERROR]: Failed to read docker script: %v", err)
 			progress.Message(msg)
+			time.Sleep(time.Millisecond * 100)
 
 			return fmt.Errorf("read docker script: %w", err)
 		}
@@ -146,6 +157,7 @@ func installDocker(dryRun bool, progress *tap.Progress) error {
 		if err != nil {
 			msg := fmt.Sprintf("❌ [ERROR]: Failed to write temp script: %v", err)
 			progress.Message(msg)
+			time.Sleep(time.Millisecond * 100)
 
 			return fmt.Errorf("write temp script: %w", err)
 		}
@@ -182,12 +194,14 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 	if err != nil {
 		if dryRun {
 			progress.Advance(1, utils.Style("___ [DRY_RUN]: Would ensure xcode-select is installed ___", "orange"))
+			time.Sleep(time.Millisecond * 100)
 		} else {
 			cmdErr := utils.RunCmd("xcode-select --install", dryRun, progress)
 			if cmdErr != nil {
 				*failedPkgs = append(*failedPkgs, "xcode")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Xcode Command Line Tools...")
+			time.Sleep(time.Millisecond * 100)
 		}
 	}
 
@@ -200,6 +214,7 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 				*failedPkgs = append(*failedPkgs, "homebrew")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Homebrew...")
+			time.Sleep(time.Millisecond * 100)
 		}
 	case "macports":
 		if _, err := exec.LookPath("port"); err != nil {
@@ -209,6 +224,7 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 				*failedPkgs = append(*failedPkgs, "macports")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Macports...")
+			time.Sleep(time.Millisecond * 100)
 		}
 	}
 }
@@ -234,6 +250,7 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	default:
 		msg := fmt.Sprintf("⚠️ [WARNING]: macOS %s not in auto-install list.", versionStr)
 		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
 		return fmt.Errorf("macOS %s not in auto-install list", versionStr)
 	}
 
@@ -265,11 +282,14 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 	if dryRun {
 		msg := fmt.Sprintf(utils.Style("___ [DRY_RUN]: %s. Would download: %s ___", "orange"), versionStr, downloadURL)
 		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
 		return nil
 	}
 
 	dlMsg := fmt.Sprintf("↓ [DOWNLOADING]: MacPorts %s for %s...", pkgName, osName)
 	progress.Message(dlMsg)
+	time.Sleep(time.Millisecond * 100)
+
 	cmdErrDownload := utils.RunCmd(fmt.Sprintf("curl -O %s", downloadURL), false, progress)
 	if cmdErrDownload != nil {
 		return cmdErrDownload

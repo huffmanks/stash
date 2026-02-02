@@ -36,7 +36,7 @@ func HandleUninstall(banner string) {
 	binaryPath := "/usr/local/bin/stash"
 
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		tap.Outro("🛑 [ABORTED]: stash is not found in /usr/local/bin.")
+		tap.Outro(Style("🛑 [ABORTED]: stash is not found in /usr/local/bin.", "orange"))
 		os.Exit(0)
 	}
 
@@ -47,11 +47,14 @@ func HandleUninstall(banner string) {
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,
 	})
-	spinner.Start("Uninstalling stash...")
-	time.Sleep(time.Millisecond * 1300)
-	spinner.Stop("Uninstalling stash...", 0)
 
-	time.Sleep(time.Millisecond * 200)
+	spinner.Start("Uninstalling stash...")
+	time.Sleep(time.Millisecond * 1000)
+
+	spinner.Stop("Uninstalling stash...", 0)
+	time.Sleep(time.Millisecond * 100)
+
 	tap.Outro("✅ [UNINSTALLED]: stash has been removed successfully.")
+	time.Sleep(time.Millisecond * 100)
 	os.Exit(0)
 }

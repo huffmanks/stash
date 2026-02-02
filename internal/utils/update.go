@@ -34,6 +34,7 @@ func HandleUpdate(banner string, force bool, latest string) {
 		Delay: time.Millisecond * 100,
 	})
 	spinner.Start("Updating...")
+	time.Sleep(time.Millisecond * 100)
 
 	scriptURL := "https://raw.githubusercontent.com/huffmanks/stash/main/install.sh"
 	shellCmd := fmt.Sprintf("curl -sSL %s | bash -s --", scriptURL)
@@ -47,14 +48,16 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 	if err != nil {
 		spinner.Stop("❌ [FAILED]: updating stash.", 2)
+		time.Sleep(time.Millisecond * 100)
 		os.Exit(1)
 	}
 
-	time.Sleep(time.Millisecond * 1300)
+	time.Sleep(time.Millisecond * 1000)
 	spinner.Stop("Updating...", 0)
 
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 100)
 	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", latest))
+	time.Sleep(time.Millisecond * 100)
 
 	os.Exit(0)
 }

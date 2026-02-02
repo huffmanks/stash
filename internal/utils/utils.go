@@ -49,17 +49,20 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	if dryRun {
 		msg := fmt.Sprintf(Style("___ [DRY_RUN]: Would execute: %s ___", "orange"), shellCmd)
 		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
+
 		return nil
 	}
 
-	if strings.HasPrefix(shellCmd, "sudo") {
+	if strings.Contains(shellCmd, "sudo") {
 		PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
 	}
 
 	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
 	progress.Message(executingMsg)
+	time.Sleep(time.Millisecond * 100)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "sh", "-c", shellCmd)
@@ -68,8 +71,10 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	output, err := cmd.CombinedOutput()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		msg := fmt.Sprintf("❌ [ERROR]: %s took to long and timed out after 30s", shellCmd)
+		msg := fmt.Sprintf("❌ [ERROR]: %s took to long and timed out after 120s", shellCmd)
 		progress.Message(msg)
+		time.Sleep(time.Millisecond * 100)
+
 		return fmt.Errorf("%s", msg)
 	}
 
@@ -83,13 +88,15 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 		}
 
 		progress.Message(fmt.Sprintf("❌ [ERROR]: %s\n%s", shellCmd, shortErr))
+		time.Sleep(time.Millisecond * 100)
+
 		return err
 	}
 
 	return nil
 }
 
-func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinner) {
+func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinner) error {
 
 	home, _ := os.UserHomeDir()
 	finalPath := filepath.Join(home, fileName)
@@ -98,6 +105,7 @@ func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinn
 		finalPath = filepath.Join(home, "test_"+fileName)
 		msg := fmt.Sprintf(Style("___ [DRY_RUN]: Writing test file to: %s  ___", "orange"), finalPath)
 		spinner.Message(msg)
+		time.Sleep(time.Millisecond * 100)
 	} else {
 		if _, err := os.Stat(finalPath); err == nil {
 			now := time.Now()
@@ -106,6 +114,7 @@ func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinn
 			bakDir := filepath.Join(home, ".config", "stash")
 			if err := os.MkdirAll(bakDir, 0755); err != nil {
 				spinner.Message(fmt.Sprintf("❌ [ERROR]: Could not create backup dir: %v", err))
+				time.Sleep(time.Millisecond * 100)
 			}
 
 			bakFileName := fmt.Sprintf("bak_%s_%s", timestamp, fileName)
@@ -115,21 +124,28 @@ func WriteFiles(fileName string, content []byte, dryRun bool, spinner *tap.Spinn
 				os.Chtimes(bakPath, now, now)
 				msg := fmt.Sprintf("🚚 [MOVED]: Existing file moved to %s", bakPath)
 				spinner.Message(msg)
+				time.Sleep(time.Millisecond * 100)
 			} else {
 				msg := fmt.Sprintf("⚠️ %s %v", Style("[WARNING]: Could not backup existing file:", "orange"), err)
 				spinner.Message(msg)
+				time.Sleep(time.Millisecond * 100)
 			}
 		}
 
 		msg := fmt.Sprintf("📝 [WRITING]: file to %s", finalPath)
 		spinner.Message(msg)
+		time.Sleep(time.Millisecond * 100)
 	}
 
 	err := os.WriteFile(finalPath, content, 0644)
 	if err != nil {
 		errMsg := fmt.Sprintf("❌ [ERROR]: writing %s - %v", finalPath, err)
 		spinner.Message(errMsg)
+		time.Sleep(time.Millisecond * 100)
+		return err
 	}
+
+	return nil
 }
 
 func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
@@ -142,21 +158,23 @@ func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
 	files, err := filepath.Glob(pattern)
 	if err != nil {
 		spinner.Message(fmt.Sprintf("❌ [ERROR]: Glob pattern failed: %v", err))
+		time.Sleep(time.Millisecond * 100)
 		return res
 	}
 
 	if len(files) == 0 {
 		spinner.Message("‼️ [EMPTY]: No backup files found to delete.")
+		time.Sleep(time.Millisecond * 100)
 		return res
 	}
 
 	for _, f := range files {
 		base := filepath.Base(f)
-		time.Sleep(time.Millisecond * 100)
 
 		if dryRun {
 			msg := fmt.Sprintf(Style("___ [DRY_RUN]: Would delete: %s ___", "orange"), base)
 			spinner.Message(msg)
+			time.Sleep(time.Millisecond * 100)
 			res.Deleted = append(res.Deleted, base)
 			continue
 		}
@@ -164,9 +182,11 @@ func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
 		err := os.Remove(f)
 		if err != nil {
 			spinner.Message(fmt.Sprintf("❌ [ERROR]: %s", base))
+			time.Sleep(time.Millisecond * 100)
 			res.Failed = append(res.Failed, fmt.Sprintf("%s (%v)", base, err))
 		} else {
 			spinner.Message(fmt.Sprintf("🗑️  [DELETED]: %s", base))
+			time.Sleep(time.Millisecond * 100)
 			res.Deleted = append(res.Deleted, base)
 		}
 	}
@@ -307,4 +327,21 @@ func IsAndroid() bool {
 	}
 
 	return false
+}
+
+func Diff[T comparable](original, results []T) (matched, missed []T) {
+	resMap := make(map[T]bool)
+	for _, item := range results {
+		resMap[item] = true
+	}
+
+	for _, item := range original {
+		if resMap[item] {
+			matched = append(matched, item)
+		} else {
+			missed = append(missed, item)
+		}
+	}
+
+	return matched, missed
 }

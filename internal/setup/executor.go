@@ -3,6 +3,8 @@ package setup
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"os/exec"
 	"runtime"
 	"slices"
 	"strings"
@@ -78,6 +80,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		})
 
 		progress.Start("Installing packages...")
+		time.Sleep(time.Millisecond * 100)
 
 		var failedPkgs []string
 
@@ -89,9 +92,9 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			return err
 		}
 
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 100)
 		progress.Stop("🏁 [FINISHED]", 0)
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 100)
 
 		successfulPkgs := c.SelectedPkgs
 
@@ -127,17 +130,14 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		} else {
 			tap.Outro(installedPkgsMsg)
 		}
+
+		time.Sleep(time.Millisecond * 100)
+
+		os.Exit(0)
 	}
 
 	if c.Operation == "configure" && len(c.BuildFiles) > 0 {
-
-		gitignoreSpinner := tap.NewSpinner(tap.SpinnerOptions{
-			Delay: time.Millisecond * 100,
-		})
-		gitconfigSpinner := tap.NewSpinner(tap.SpinnerOptions{
-			Delay: time.Millisecond * 100,
-		})
-
+		var created []string
 		zshProcessed := false
 
 		if slices.Contains(c.BuildFiles, ".zshrc") {
@@ -149,42 +149,68 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		}
 
 		if zshProcessed {
-			buildZshConfigs(c, runtime.GOOS, runtime.GOARCH, dryRun)
+			buildZshConfigs(c, runtime.GOOS, runtime.GOARCH, dryRun, &created)
 		}
 
 		if slices.Contains(c.BuildFiles, ".gitignore") {
-			gitignoreSpinner.Start("Creating .gitignore...")
-			time.Sleep(time.Second * 2)
+			gitignoreSpinner := tap.NewSpinner(tap.SpinnerOptions{
+				Delay: time.Millisecond * 100,
+			})
 
-			copyGitIgnore(dryRun, gitignoreSpinner)
+			gitignoreSpinner.Start("Creating .gitignore...")
+			time.Sleep(time.Millisecond * 100)
+
+			copyGitIgnore(dryRun, &created, gitignoreSpinner)
 		}
 
 		if slices.Contains(c.BuildFiles, ".gitconfig") {
-			gitconfigSpinner.Start("Creating .gitconfig...")
-			time.Sleep(time.Second * 2)
+			gitconfigSpinner := tap.NewSpinner(tap.SpinnerOptions{
+				Delay: time.Millisecond * 100,
+			})
 
-			createGitConfig(c, dryRun, gitconfigSpinner)
+			gitconfigSpinner.Start("Creating .gitconfig...")
+			time.Sleep(time.Millisecond * 100)
+
+			createGitConfig(c, dryRun, &created, gitconfigSpinner)
 		}
 
-		confMsg := fmt.Sprintf("⚙️  [CONFIGURED]: %d packages\n   🗂️  [FILES]: %d created",
+		success, missed := utils.Diff(c.BuildFiles, created)
+		confMsg := fmt.Sprintf("⚙️  [CONFIGURED]: %d packages\n   🗂️  [FILES]: %d created, %d skipped",
 			len(c.SelectedPkgs),
-			len(c.BuildFiles),
+			len(success),
+			len(missed),
 		)
 		tap.Message(confMsg)
 
-		var displayNames []string
+		var sections []string
 		prefix := ""
 		if dryRun {
-			prefix = "test"
+			prefix = "test_"
 		}
 
-		for _, f := range c.BuildFiles {
-			displayNames = append(displayNames, prefix+f)
+		if len(success) > 0 {
+			for i, f := range success {
+				success[i] = prefix + f
+			}
+			msg := fmt.Sprintf("The following files were created in your home directory:\n   %s",
+				utils.Style(strings.Join(success, ", "), "cyan"))
+			sections = append(sections, msg)
 		}
-		outroMsg := fmt.Sprintf("The following files were created in your home directory:\n   %s",
-			utils.Style(strings.Join(displayNames, ", "), "cyan"))
+
+		if len(missed) > 0 {
+			msg := fmt.Sprintf("The following files were skipped:\n   %s",
+				utils.Style(strings.Join(missed, ", "), "orange"))
+			sections = append(sections, msg)
+		}
+
+		outroMsg := strings.Join(sections, "\n\n")
+		if outroMsg == "" {
+			outroMsg = "✨ No files were processed."
+		}
 		tap.Outro(outroMsg)
+		time.Sleep(time.Millisecond * 100)
 
+		os.Exit(0)
 	}
 
 	if c.Operation == "delete" {
@@ -193,11 +219,12 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		})
 
 		spinner.Start("Scanning for backups...")
+		time.Sleep(time.Millisecond * 100)
 
 		report := utils.DeleteFiles(dryRun, spinner)
 
-		time.Sleep(time.Millisecond * 500)
 		spinner.Stop("Cleanup process finished", 0)
+		time.Sleep(time.Millisecond * 100)
 
 		var outroMsg string
 
@@ -228,6 +255,9 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		}
 
 		tap.Outro(strings.TrimSpace(outroMsg))
+		time.Sleep(time.Millisecond * 100)
+
+		os.Exit(0)
 
 	}
 
@@ -236,50 +266,88 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 
 const gitConfigTmpl = `[init]
     defaultBranch = {{.GitBranch}}
+
 [user]
     name = {{.GitName}}
     email = {{.GitEmail}}
+
 [core]
     excludesfile = ~/.gitignore
 
 [http]
     postBuffer = 10485760
-`
+{{if .GHPath}}
+[credential "https://github.com"]
+    helper =
+    helper = !{{.GHPath}} auth git-credential
+[credential "https://gist.github.com"]
+    helper =
+    helper = !{{.GHPath}} auth git-credential
+{{end}}`
 
-func createGitConfig(c *config.Config, dryRun bool, spinner *tap.Spinner) {
+func createGitConfig(c *config.Config, dryRun bool, created *[]string, spinner *tap.Spinner) {
 	spinner.Message(("🔨 [BUILDING]: .gitconfig from template..."))
+	time.Sleep(time.Millisecond * 100)
+
+	ghPath, err := exec.LookPath("gh")
+	if err == nil {
+		c.GHPath = ghPath
+	} else {
+		c.GHPath = ""
+	}
 
 	tmpl, err := template.New("gitconfig").Parse(gitConfigTmpl)
 	if err != nil {
 		spinner.Stop("❌ [FAILED]: creating .gitconfig", 1)
+		time.Sleep(time.Millisecond * 100)
 		return
 	}
 
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, c); err != nil {
 		spinner.Stop("❌ [FAILED]: creating .gitconfig", 1)
+		time.Sleep(time.Millisecond * 100)
 		return
 	}
 
-	time.Sleep(time.Second * 1)
-	utils.WriteFiles(".gitconfig", buf.Bytes(), dryRun, spinner)
+	time.Sleep(time.Millisecond * 500)
+
+	err = utils.WriteFiles(".gitconfig", buf.Bytes(), dryRun, spinner)
+	if err != nil {
+		spinner.Stop("❌ [FAILED]: writing .gitconfig", 1)
+		time.Sleep(time.Millisecond * 100)
+		return
+	}
+
+	*created = append(*created, ".gitconfig")
 	spinner.Stop("✅ [CREATED]: .gitconfig", 0)
+	time.Sleep(time.Millisecond * 100)
 }
 
-func copyGitIgnore(dryRun bool, spinner *tap.Spinner) {
+func copyGitIgnore(dryRun bool, created *[]string, spinner *tap.Spinner) {
 	spinner.Message(("🔍 [SEARCHING]: Looking for .gitignore..."))
+	time.Sleep(time.Millisecond * 100)
+
 	sourcePath := ".dotfiles/git/.gitignore"
 
 	data, err := assets.Files.ReadFile(sourcePath)
 	if err != nil {
 		spinner.Stop(fmt.Sprintf("⚠️ [SKIPPED]: No .gitignore found at: %s", sourcePath), 1)
+		time.Sleep(time.Millisecond * 100)
 		return
 	}
 
 	spinner.Message(fmt.Sprintf("📍 [FOUND]: .gitignore at: %s", sourcePath))
-	time.Sleep(time.Second * 1)
+	time.Sleep(time.Millisecond * 500)
 
-	utils.WriteFiles(".gitignore", data, dryRun, spinner)
+	err = utils.WriteFiles(".gitignore", data, dryRun, spinner)
+	if err != nil {
+		spinner.Stop("❌ [FAILED]: writing .gitignore", 1)
+		time.Sleep(time.Millisecond * 100)
+		return
+	}
 
+	*created = append(*created, ".gitignore")
 	spinner.Stop("✅ [CREATED]: .gitignore", 0)
+	time.Sleep(time.Millisecond * 100)
 }

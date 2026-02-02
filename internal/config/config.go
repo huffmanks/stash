@@ -17,16 +17,13 @@ type Config struct {
 	GitName        string   `json:"git_name"`
 	GitEmail       string   `json:"git_email"`
 	GitBranch      string   `json:"git_branch"`
+	GHPath         string   `json:"-"`
 	SelectedPkgs   []string `json:"selected_pkgs"`
 	Confirm        bool     `json:"-"`
 	StartOver      bool     `json:"-"`
 }
 
 func Load() (*Config, error) {
-	var conf Config
-	conf.App = "stash"
-	conf.Version = Version
-
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".config", "stash", "config.json")
 
@@ -38,21 +35,32 @@ func Load() (*Config, error) {
 		}, err
 	}
 
-	err = json.Unmarshal(data, &conf)
+	var conf Config
+	if err := json.Unmarshal(data, &conf); err != nil {
+		return nil, err
+	}
 
-	return &conf, err
+	return &conf, nil
 }
 
 func (c *Config) Save() error {
+	c.App = "stash"
+	c.Version = Version
+
 	home, _ := os.UserHomeDir()
 	configDir := filepath.Join(home, ".config", "stash")
 	path := filepath.Join(configDir, "config.json")
 
 	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		os.MkdirAll(configDir, 0755)
+		if err := os.MkdirAll(configDir, 0755); err != nil {
+			return err
+		}
 	}
 
-	data, _ := json.MarshalIndent(c, "", "  ")
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
 
 	return os.WriteFile(path, data, 0644)
 }
