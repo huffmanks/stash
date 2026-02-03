@@ -162,7 +162,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 			}
 
 			if conf.Operation == "install" {
-				categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "tree"}
+				categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "just", "tree"}
 			}
 
 			if runtime.GOOS == "darwin" {
