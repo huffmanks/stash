@@ -1,5 +1,6 @@
 BINARY_NAME=stash
 DIST_PATH=dist
+VERSION ?= 1.0.5
 
 .PHONY: all clean dev base build release
 
@@ -20,6 +21,10 @@ base:
 
 build:
 	goreleaser release --snapshot --clean
+
+tag:
+	git tag v$(VERSION)
+	git push origin v$(VERSION)
 
 release:
 	GITHUB_TOKEN=$$(gh auth token) goreleaser release --clean
