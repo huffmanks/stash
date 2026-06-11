@@ -54,6 +54,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			err = utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun, progress)
 		case pkg == "pnpm":
 			err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
+		case pkg == "uv":
+			err = utils.RunCmd("curl -LsSf https://astral.sh/uv/install.sh | sh", dryRun, progress)
 		case pkg == "zsh":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 			if err == nil && runtime.GOOS == "linux" {

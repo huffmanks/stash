@@ -157,12 +157,12 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 			categories := map[string][]string{
 				"CLI tools": {},
-				"Exports":   {"bun", "docker", "go", "nvm", "pipx", "pnpm"},
+				"Exports":   {"bun", "docker", "go", "nvm", "pnpm"},
 				"Plugins":   {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
 			}
 
 			if conf.Operation == "install" {
-				categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "just", "tree"}
+				categories["CLI tools"] = []string{"bat", "fastfetch", "fd", "ffmpeg", "gh", "git", "jq", "just", "tree", "uv"}
 			}
 
 			if runtime.GOOS == "darwin" {

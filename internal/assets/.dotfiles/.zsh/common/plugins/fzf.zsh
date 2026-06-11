@@ -47,6 +47,7 @@ fzf_history_search() {
     )}"
     zle end-of-line
   fi
+  zle redisplay
   zle reset-prompt
   return $ret
 }

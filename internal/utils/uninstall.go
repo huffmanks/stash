@@ -42,7 +42,7 @@ func HandleUninstall(banner string) {
 
 	errorMsg := fmt.Sprintf("❌ %s\n   %s\n      %s\n      %s", Style("[ERROR]: Failed to remove the binary.", "red"), Style("To finish the cleanup, you can manually remove:", "dim"), Style("• /usr/local/bin/stash", "cyan"), Style("• ~/.config/stash", "cyan"))
 	command := fmt.Sprintf("rm %s", binaryPath)
-	PromptForSudo(errorMsg, command)
+	PromptForSudo(errorMsg, false, command)
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,

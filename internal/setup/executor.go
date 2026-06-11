@@ -36,7 +36,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 	if c.Operation == "install" && len(c.SelectedPkgs) > 0 {
 
 		if !dryRun {
-			utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
+			utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
 		}
 
 		if runtime.GOOS == "darwin" {

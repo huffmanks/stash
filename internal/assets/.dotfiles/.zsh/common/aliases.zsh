@@ -26,3 +26,21 @@ alias gsu='git submodule update --remote --merge'  # Update submodules to latest
 # ----- Shawtys -----
 alias hg='history | grep'             # Search history
 alias rg='grep -rHn'                  # Recursive, display filename and line number
+
+# ----- Functions -----
+nuke-cache() {
+  echo "Starting cache purge..."
+
+  if type docker &>/dev/null && docker info &>/dev/null; then
+    docker system prune -a -f
+  else
+    echo "Docker not running or not installed, skipping..."
+  fi
+
+  type pnpm &>/dev/null && pnpm store prune || echo "pnpm not found, skipping..."
+  type npm &>/dev/null && npm cache clean --force || echo "npm not found, skipping..."
+  type go &>/dev/null && go clean -cache -modcache || echo "Go not found, skipping..."
+  type uv &>/dev/null && uv cache clean || echo "uv not found, skipping..."
+
+  echo "Cache purge complete!"
+}

@@ -28,7 +28,7 @@ func HandleUpdate(banner string, force bool, latest string) {
 		}
 	}
 
-	PromptForSudo("❌ [ERROR]: sudo authentication failed.", "true", true)
+	PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,
