@@ -1,6 +1,6 @@
 BINARY_NAME=stash
 DIST_PATH=dist
-VERSION ?= 1.0.7
+VERSION ?= 1.0.8
 
 .PHONY: all clean dev base build release
 

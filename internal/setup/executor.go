@@ -276,10 +276,14 @@ const gitConfigTmpl = `[init]
 
 [http]
     postBuffer = 10485760
+
+[submodule]
+	recurse = true
 {{if .GHPath}}
 [credential "https://github.com"]
     helper =
     helper = !{{.GHPath}} auth git-credential
+
 [credential "https://gist.github.com"]
     helper =
     helper = !{{.GHPath}} auth git-credential
