@@ -23,33 +23,24 @@
   "[astro]": {
     "editor.defaultFormatter": "astro-build.astro-vscode"
   },
-  "[go]": {
-    "editor.defaultFormatter": "golang.go",
-    "editor.formatOnSave": true,
-    "editor.codeActionsOnSave": {
-      "source.organizeImports": "always"
-    }
-  },
-  "go.formatTool": "goimports",
-  "[html]": {
-    "editor.defaultFormatter": "vscode.html-language-features"
-  },
-  "[mdx]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[python]": {
-    "editor.defaultFormatter": "ms-python.autopep8",
-    "editor.formatOnSave": false
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
   "autopep8.args": ["--max-line-length", "120", "--experimental"],
   "biome.requireConfiguration": true,
   "biome.suggestInstallingGlobally": false,
-  "chat.commandCenter.enabled": false,
+  "chat.viewSessions.orientation": "stacked",
   "css.lint.unknownAtRules": "ignore",
   "diffEditor.wordWrap": "on",
+  "docker.extension.enableComposeLanguageServer": false,
+  "[dockercompose]": {
+    "editor.insertSpaces": true,
+    "editor.tabSize": 2,
+    "editor.autoIndent": "advanced",
+    "editor.quickSuggestions": {
+      "other": true,
+      "comments": false,
+      "strings": true
+    },
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
   "editor.codeActionsOnSave": {
     "source.fixAll": "always",
     "source.organizeImports": "always"
@@ -69,8 +60,14 @@
     "mjml": "html",
     "mdx": "typescriptreact"
   },
+  "explorer.confirmPasteNative": false,
   "explorer.compactFolders": false,
+  "extensions.autoUpdate": "off",
   "extensions.ignoreRecommendations": true,
+  "extensionUpdateDelay.delayHours": 72,
+  "extensionUpdateDelay.checkIntervalHours": 24,
+  "extensionUpdateDelay.disableBuiltInAutoUpdate": true,
+  "extensionUpdateDelay.excludeExtensions": ["huffmanks.palette-paste-ext"],
   "files.associations": {
     "*.astro": "astro",
     "*.css": "tailwindcss",
@@ -80,34 +77,68 @@
   "files.insertFinalNewline": false,
   "files.trimFinalNewlines": true,
   "files.trimTrailingWhitespace": true,
+  "github.copilot.enable": {
+    "*": false,
+    "plaintext": false,
+    "markdown": false,
+    "scminput": false
+  },
+  "[github-actions-workflow]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
+  "go.toolsManagement.autoUpdate": true,
+  "[go]": {
+    "editor.defaultFormatter": "golang.go",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always"
+    }
+  },
+  "go.formatTool": "goimports",
+  "[html]": {
+    "editor.defaultFormatter": "vscode.html-language-features"
+  },
   "html.format.enable": true,
   "html.format.preserveNewLines": false,
   "html.format.wrapLineLength": 0,
-  "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
-  "javascript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets": true,
-  "javascript.format.semicolons": "insert",
-  "javascript.preferences.quoteStyle": "double",
+  "js/ts.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+  "js/ts.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets": true,
+  "js/ts.preferences.quoteStyle": "double",
+  "js/ts.format.semicolons": "insert",
+  "js/ts.preferences.includePackageJsonAutoImports": "auto",
+  "js/ts.suggest.autoImports": true,
+  "js/ts.updateImportsOnFileMove.enabled": "always",
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "liveServer.settings.donotShowInfoMsg": true,
   "liveServer.settings.donotVerifyTags": true,
   "material-icon-theme.activeIconPack": "react_redux",
-  "palettePaste.defaultDateFormat": "Unix",
+  "[mdx]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "palettePaste.defaultDateFormat": "ISO",
   "prettier.arrowParens": "always",
   "prettier.bracketSameLine": true,
   "prettier.jsxSingleQuote": false,
-  "prettier.printWidth": 200,
+  "prettier.printWidth": 120,
   "prettier.semi": true,
   "prettier.singleQuote": false,
   "prettier.tabWidth": 2,
   "prettier.useEditorConfig": false,
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8",
+    "editor.formatOnSave": false
+  },
   "reactSnippets.settings.importReactOnTop": false,
   "reactSnippets.settings.prettierEnabled": true,
   "redhat.telemetry.enabled": false,
   "settingsSync.ignoredExtensions": ["ms-vscode-remote.remote-wsl"],
+  "[svg]": {
+    "editor.defaultFormatter": "jock.svg"
+  },
   "tailwindCSS.experimental.classRegex": ["class:\\s*?[\"'`]([^\"'`]*).*?,", "className:\\s*?[\"'`]([^\"'`]*).*?,"],
-  "typescript.format.semicolons": "insert",
-  "typescript.preferences.includePackageJsonAutoImports": "auto",
-  "typescript.suggest.autoImports": true,
-  "typescript.tsdk": "/Users/$USER/.nvm/versions/node/v$VERSION/lib/node_modules/typescript/lib",
+  "update.mode": "manual",
   "workbench.colorTheme": "One Dark Pro Darker",
   "workbench.editor.enablePreview": true,
   "workbench.editor.enablePreviewFromQuickOpen": true,
@@ -117,30 +148,5 @@
   "workbench.editorAssociations": {
     "*.plist": "default",
     "*.svg": "default"
-  },
-  "docker.extension.enableComposeLanguageServer": false,
-  "[svg]": {
-    "editor.defaultFormatter": "jock.svg"
-  },
-  "[dockercompose]": {
-    "editor.insertSpaces": true,
-    "editor.tabSize": 2,
-    "editor.autoIndent": "advanced",
-    "editor.quickSuggestions": {
-      "other": true,
-      "comments": false,
-      "strings": true
-    },
-    "editor.defaultFormatter": "redhat.vscode-yaml"
-  },
-  "[github-actions-workflow]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml"
-  },
-  "update.mode": "manual",
-  "github.copilot.enable": {
-    "*": false,
-    "plaintext": false,
-    "markdown": false,
-    "scminput": false
   }
 }
