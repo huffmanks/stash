@@ -201,9 +201,6 @@ func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
 }
 
 var pkgOverrides = map[string]map[string]string{
-	"bat": {
-		"apt": "batcat",
-	},
 	"fd": {
 		"apt": "fd-find",
 		"dnf": "fd-find",
