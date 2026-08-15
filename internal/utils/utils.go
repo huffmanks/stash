@@ -56,7 +56,6 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 
 	if strings.Contains(shellCmd, "sudo") {
 		PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
-		return nil
 	}
 
 	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
@@ -202,11 +201,15 @@ func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
 }
 
 var pkgOverrides = map[string]map[string]string{
+	"bat": {
+		"apt": "batcat",
+	},
 	"fd": {
 		"apt": "fd-find",
 		"dnf": "fd-find",
 	},
 	"java-android-studio": {
+		"brew":     "--cask zulu@17",
 		"homebrew": "--cask zulu@17",
 		"macports": "openjdk17-zulu",
 	},

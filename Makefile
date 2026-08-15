@@ -1,6 +1,6 @@
 BINARY_NAME=stash
 DIST_PATH=dist
-VERSION ?= 1.0.8
+VERSION ?= 1.0.9
 
 .PHONY: all clean dev base build release
 
@@ -12,6 +12,9 @@ clean:
 
 dev:
 	go run main.go --dry-run || exit 0
+
+test:
+	go run main.go || exit 0
 
 base:
 	go run main.go $(filter-out $@,$(MAKECMDGOALS))

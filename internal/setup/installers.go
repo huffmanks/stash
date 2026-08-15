@@ -20,6 +20,15 @@ import (
 )
 
 func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, failedPkgs *[]string) error {
+	if c.PackageManager == "macports" && !dryRun {
+		utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
+
+		if err := utils.RunCmd("sudo port sync", dryRun, progress); err != nil {
+			progress.Message(fmt.Sprintf("❌ [ERROR]: MacPorts sync failed: %v", err))
+			time.Sleep(time.Millisecond * 500)
+		}
+	}
+
 	for _, pkg := range c.SelectedPkgs {
 		var err error
 
@@ -92,10 +101,10 @@ func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 
 	switch pm {
 	case "apt":
-		cmdStr = fmt.Sprintf("sudo apt install -y %s", resolvedPkg)
+		cmdStr = fmt.Sprintf("sudo DEBIAN_FRONTEND=noninteractive apt install -y %s", resolvedPkg)
 	case "dnf":
 		cmdStr = fmt.Sprintf("sudo dnf install -y %s", resolvedPkg)
-	case "homebrew":
+	case "brew", "homebrew":
 		cmdStr = fmt.Sprintf("brew install %s", resolvedPkg)
 	case "macports":
 		cmdStr = fmt.Sprintf("sudo port install %s", resolvedPkg)
@@ -302,6 +311,10 @@ func installMacPorts(dryRun bool, progress *tap.Progress) error {
 
 	if cmdErrInstall != nil {
 		return cmdErrInstall
+	}
+
+	if !dryRun {
+		_ = utils.RunCmd("sudo /opt/local/bin/port selfupdate", false, progress)
 	}
 
 	return nil
