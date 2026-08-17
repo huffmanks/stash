@@ -4,7 +4,7 @@ project_name: stash
 
 before:
   hooks:
-    - make clean
+    - just clean
     - go mod tidy
 
 builds:
