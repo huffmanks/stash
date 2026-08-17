@@ -23,6 +23,25 @@ type Config struct {
 	StartOver      bool     `json:"-"`
 }
 
+type DynamicPackage struct {
+	Label           string
+	CandidateGroups [][]string
+	GetPrefix       func(goos, pm string, hasResolved bool) []string
+}
+
+type MacPortRelease struct {
+	TagName string `json:"tag_name"`
+	Assets  []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+type DeleteResult struct {
+	Deleted []string
+	Failed  []string
+}
+
 func Load() (*Config, error) {
 	home, _ := os.UserHomeDir()
 	path := filepath.Join(home, ".config", "stash", "config.json")
@@ -63,17 +82,4 @@ func (c *Config) Save() error {
 	}
 
 	return os.WriteFile(path, data, 0644)
-}
-
-type MacPortRelease struct {
-	TagName string `json:"tag_name"`
-	Assets  []struct {
-		Name               string `json:"name"`
-		BrowserDownloadURL string `json:"browser_download_url"`
-	} `json:"assets"`
-}
-
-type DeleteResult struct {
-	Deleted []string
-	Failed  []string
 }

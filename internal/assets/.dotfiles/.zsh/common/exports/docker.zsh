@@ -1,4 +1,4 @@
 # ----- Docker -----
-FPATH="$HOME/.docker/completions:$FPATH"
+fpath=("$HOME/.docker/completions" $fpath)
 autoload -Uz compinit
 compinit

@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -73,7 +72,7 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		case isZshPlugin:
 			repo := fmt.Sprintf("https://github.com/zsh-users/%s", pkg)
 			home, _ := os.UserHomeDir()
-			target := path.Join(home, ".zsh", pkg)
+			target := filepath.Join(home, ".zsh", pkg)
 			err = gitClone(repo, target, dryRun, progress)
 		default:
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
@@ -100,14 +99,16 @@ func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 	var cmdStr string
 
 	switch pm {
+	case "apk":
+		cmdStr = fmt.Sprintf("sudo apk add %s", resolvedPkg)
 	case "apt":
 		cmdStr = fmt.Sprintf("sudo DEBIAN_FRONTEND=noninteractive apt install -y %s", resolvedPkg)
 	case "dnf":
 		cmdStr = fmt.Sprintf("sudo dnf install -y %s", resolvedPkg)
 	case "brew", "homebrew":
-		cmdStr = fmt.Sprintf("brew install %s", resolvedPkg)
+		cmdStr = fmt.Sprintf("NONINTERACTIVE=1 brew install %s", resolvedPkg)
 	case "macports":
-		cmdStr = fmt.Sprintf("sudo port install %s", resolvedPkg)
+		cmdStr = fmt.Sprintf("sudo port -N install %s", resolvedPkg)
 	case "pacman":
 		cmdStr = fmt.Sprintf("sudo pacman -S --noconfirm %s", resolvedPkg)
 	}
@@ -152,7 +153,7 @@ func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) e
 }
 
 func installDocker(dryRun bool, progress *tap.Progress) error {
-	tempScript := path.Join(os.TempDir(), "get-docker.sh")
+	tempScript := filepath.Join(os.TempDir(), "get-docker.sh")
 
 	if !dryRun {
 		data, err := assets.Files.ReadFile("scripts/get-docker.sh")

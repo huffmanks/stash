@@ -30,13 +30,19 @@ func DetectPackageManager() string {
 			name string
 			bin  string
 		}{
-			{"apt", "apt-get"},
-			{"pacman", "pacman"},
-			{"dnf", "dnf"},
+			{name: "brew"},
+			{name: "apk"},
+			{name: "apt", bin: "apt-get"},
+			{name: "pacman"},
+			{name: "dnf"},
 		}
 
 		for _, pm := range managers {
-			if _, err := exec.LookPath(pm.bin); err == nil {
+			bin := pm.bin
+			if bin == "" {
+				bin = pm.name
+			}
+			if _, err := exec.LookPath(bin); err == nil {
 				return pm.name
 			}
 		}
@@ -353,4 +359,56 @@ func Diff[T comparable](original, results []T) (matched, missed []T) {
 	}
 
 	return matched, missed
+}
+
+func GenerateSourceSnippet(pkgName string, pkg config.DynamicPackage, goos, pm string) string {
+	var resolved []string
+	homeDir, _ := os.UserHomeDir()
+
+	for _, group := range pkg.CandidateGroups {
+		for _, p := range group {
+			expanded := p
+			if strings.HasPrefix(p, "~/") && homeDir != "" {
+				expanded = filepath.Join(homeDir, strings.TrimPrefix(p, "~/"))
+			}
+
+			if info, err := os.Stat(expanded); err == nil && !info.IsDir() {
+				resolved = append(resolved, p)
+				break
+			}
+		}
+	}
+
+	hasResolved := len(resolved) > 0
+	var prefix []string
+	if pkg.GetPrefix != nil {
+		prefix = pkg.GetPrefix(goos, pm, hasResolved)
+	}
+
+	if !hasResolved && len(prefix) == 0 {
+		return ""
+	}
+
+	label := pkg.Label
+	if label == "" {
+		label = pkgName
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# ----- %s -----\n", label)
+
+	for _, line := range prefix {
+		sb.WriteString(line)
+		sb.WriteByte('\n')
+	}
+
+	if len(prefix) > 0 && hasResolved {
+		sb.WriteByte('\n')
+	}
+
+	for _, p := range resolved {
+		fmt.Fprintf(&sb, "source %s\n", p)
+	}
+
+	return sb.String()
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"time"
@@ -14,6 +15,61 @@ import (
 	"github.com/huffmanks/stash/internal/utils"
 	"github.com/yarlson/tap"
 )
+
+var dynamicPkgs = map[string]config.DynamicPackage{
+	"fzf": {
+		CandidateGroups: [][]string{
+			{
+				"~/.zsh/fzf/completion.zsh",
+				"/opt/homebrew/opt/fzf/shell/completion.zsh",
+				"/usr/local/opt/fzf/shell/completion.zsh",
+				"/home/linuxbrew/.linuxbrew/opt/fzf/shell/completion.zsh",
+				"/opt/local/share/fzf/shell/completion.zsh",
+				"/usr/share/fzf/completion.zsh",
+				"/usr/share/fzf/shell/completion.zsh",
+				"/usr/share/doc/fzf/examples/completion.zsh",
+			},
+			{
+				"~/.zsh/fzf/key-bindings.zsh",
+				"/opt/homebrew/opt/fzf/shell/key-bindings.zsh",
+				"/usr/local/opt/fzf/shell/key-bindings.zsh",
+				"/home/linuxbrew/.linuxbrew/opt/fzf/shell/key-bindings.zsh",
+				"/opt/local/share/fzf/shell/key-bindings.zsh",
+				"/usr/share/fzf/key-bindings.zsh",
+				"/usr/share/fzf/shell/key-bindings.zsh",
+				"/usr/share/doc/fzf/examples/key-bindings.zsh",
+			},
+		},
+		GetPrefix: func(goos, pm string, hasResolved bool) []string {
+			if !hasResolved {
+				return []string{"source <(fzf --zsh)"}
+			}
+			return nil
+		},
+	},
+	"zsh-autosuggestions": {
+		CandidateGroups: [][]string{
+			{
+				"~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh",
+				"/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+				"/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+				"/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+				"/usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh",
+			},
+		},
+	},
+	"zsh-syntax-highlighting": {
+		CandidateGroups: [][]string{
+			{
+				"~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+				"/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+				"/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+				"/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+				"/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+			},
+		},
+	},
+}
 
 func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *[]string) {
 
@@ -37,6 +93,8 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 		displayOS = "Android"
 	}
 
+	pm := utils.DetectPackageManager()
+
 	if slices.Contains(c.BuildFiles, ".zshrc") {
 		zshrcSpinner := tap.NewSpinner(tap.SpinnerOptions{
 			Delay: time.Millisecond * 100,
@@ -55,7 +113,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 					continue
 				}
 
-				fullPath := path.Join(dirPath, entry.Name())
+				fullPath := filepath.Join(dirPath, entry.Name())
 				base := entry.Name()
 
 				switch {
@@ -85,7 +143,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 			var collected []string
 			for _, pkg := range c.SelectedPkgs {
 				for _, level := range searchLevels {
-					filePath := path.Join(level, subDir, pkg+".zsh")
+					filePath := filepath.Join(level, subDir, pkg+".zsh")
 					if _, err := fs.Stat(assets.Files, filePath); err == nil {
 						collected = append(collected, filePath)
 					}
@@ -97,19 +155,31 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 		exportFiles = collectFiles("exports")
 		pluginFiles = collectFiles("plugins")
 
+		staticPlugins := make(map[string]string, len(pluginFiles))
+		for _, f := range pluginFiles {
+			pkg := strings.TrimSuffix(path.Base(f), ".zsh")
+			staticPlugins[pkg] = f
+		}
+
 		zshrcSpinner.Start("Builidng .zshrc...")
 		time.Sleep(time.Millisecond * 100)
 
 		var finalBuffer bytes.Buffer
-		exportsHeaderAdded := false
-		pluginsHeaderAdded := false
+		writtenHeaders := make(map[string]bool)
 
-		appendSection := func(files []string, isExport bool, isPlugin bool) {
+		writeHeader := func(title string) {
+			if title != "" && !writtenHeaders[title] {
+				fmt.Fprintf(&finalBuffer, "# =====================================\n# %s\n# =====================================\n\n", title)
+				writtenHeaders[title] = true
+			}
+		}
+
+		appendSection := func(title string, files []string) {
 			if len(files) == 0 {
 				return
 			}
 
-			for i, f := range files {
+			for _, f := range files {
 				data, err := assets.Files.ReadFile(f)
 				if err != nil {
 					continue
@@ -117,28 +187,53 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 				zshrcSpinner.Message(fmt.Sprintf("✅ [INCLUDE]: %s", f))
 				time.Sleep(time.Millisecond * 100)
 
-				if isExport && !exportsHeaderAdded {
-					fmt.Fprint(&finalBuffer, "# =====================================\n# Exports\n# =====================================\n\n")
-					exportsHeaderAdded = true
-				}
-
-				if isPlugin && !pluginsHeaderAdded {
-					fmt.Fprintf(&finalBuffer, "# =====================================\n# Plugins (%s:%s)\n# =====================================\n\n", displayOS, arch)
-					pluginsHeaderAdded = true
-				}
+				writeHeader(title)
 
 				finalBuffer.Write(data)
-				if !isPlugin || i < len(files)-1 {
-					finalBuffer.WriteByte('\n')
-				}
+				finalBuffer.WriteByte('\n')
 			}
 		}
 
-		appendSection(configFiles, false, false)
-		appendSection(exportFiles, true, false)
-		appendSection(promptFiles, false, false)
-		appendSection(aliasFiles, false, false)
-		appendSection(pluginFiles, false, true)
+		appendSection("", configFiles)
+		appendSection(fmt.Sprintf("Exports (%s:%s)", displayOS, arch), exportFiles)
+		appendSection("", promptFiles)
+		appendSection("", aliasFiles)
+
+		pluginSectionTitle := fmt.Sprintf("Plugins (%s:%s)", displayOS, arch)
+
+		for _, pkg := range c.SelectedPkgs {
+			hasDynamic := false
+			if dynPkg, exists := dynamicPkgs[pkg]; exists {
+				if snippet := utils.GenerateSourceSnippet(pkg, dynPkg, goos, pm); snippet != "" {
+					writeHeader(pluginSectionTitle)
+					finalBuffer.WriteString(snippet)
+					hasDynamic = true
+				}
+			}
+
+			hasStatic := false
+			if filePath, exists := staticPlugins[pkg]; exists {
+				if data, err := assets.Files.ReadFile(filePath); err == nil {
+					writeHeader(pluginSectionTitle)
+					zshrcSpinner.Message(fmt.Sprintf("✅ [INCLUDE]: %s", filePath))
+					time.Sleep(time.Millisecond * 100)
+
+					if hasDynamic && !bytes.HasPrefix(data, []byte("\n")) {
+						finalBuffer.WriteByte('\n')
+					}
+
+					finalBuffer.Write(data)
+					if !bytes.HasSuffix(data, []byte("\n")) {
+						finalBuffer.WriteByte('\n')
+					}
+					hasStatic = true
+				}
+			}
+
+			if hasDynamic || hasStatic {
+				finalBuffer.WriteByte('\n')
+			}
+		}
 
 		zshrcSpinner.Message("--- End ZSH Manifest ---")
 		time.Sleep(time.Millisecond * 100)

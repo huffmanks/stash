@@ -39,8 +39,8 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 			}
 
 			options := []tap.SelectOption[string]{
-				{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
 				{Value: "install", Label: "Install packages", Hint: "Using your package manager"},
+				{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
 				{Value: "delete", Label: "Delete backup files", Hint: "~/.config/stash/bak**"},
 			}
 
@@ -64,9 +64,10 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 					InitialValue: initialPM,
 					Options: []tap.SelectOption[string]{
 						{Value: "back", Label: "⬅ Back"},
+						{Value: "apk", Label: "apk", Hint: "Alpine"},
 						{Value: "apt", Label: "apt", Hint: "Debian, Ubuntu"},
 						{Value: "dnf", Label: "dnf", Hint: "Fedora, RHEL, AlmaLinux"},
-						{Value: "homebrew", Label: "homebrew", Hint: "macOS"},
+						{Value: "homebrew", Label: "homebrew", Hint: "macOS, Linux"},
 						{Value: "macports", Label: "macports", Hint: "macOS"},
 						{Value: "pacman", Label: "pacman", Hint: "Arch Linux"},
 					},

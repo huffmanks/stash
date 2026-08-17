@@ -22,6 +22,12 @@ curl -sSL https://raw.githubusercontent.com/huffmanks/stash/main/install.sh | ba
 curl -sSL https://raw.githubusercontent.com/huffmanks/stash/main/install.sh | bash -s -- --force
 ```
 
+### Custom install directory
+
+```sh
+curl -sSL https://raw.githubusercontent.com/huffmanks/stash/main/install.sh | INSTALL_DIR=$HOME/bin bash
+```
+
 Once installed, simply run the command to start the interactive prompt:
 
 ```sh
