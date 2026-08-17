@@ -14,7 +14,7 @@ dev:
 	go run main.go --dry-run || exit 0
 
 test:
-	go run main.go || exit 0
+	go run main.go update || exit 0
 
 base:
 	go run main.go $(filter-out $@,$(MAKECMDGOALS))

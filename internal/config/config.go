@@ -19,6 +19,7 @@ type Config struct {
 	GitBranch      string   `json:"git_branch"`
 	GHPath         string   `json:"-"`
 	SelectedPkgs   []string `json:"selected_pkgs"`
+	SkipConfigure  bool     `json:"skip_configure"`
 	Confirm        bool     `json:"-"`
 	StartOver      bool     `json:"-"`
 }
@@ -64,7 +65,10 @@ func Load() (*Config, error) {
 
 func (c *Config) Save() error {
 	c.App = "stash"
-	c.Version = Version
+
+	if Version != "dev_x.x.x" || c.Version == "" {
+		c.Version = Version
+	}
 
 	home, _ := os.UserHomeDir()
 	configDir := filepath.Join(home, ".config", "stash")

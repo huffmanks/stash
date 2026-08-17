@@ -81,6 +81,25 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 			}
 
 			if conf.Operation == "configure" {
+
+				if len(savedConf.BuildFiles) > 0 {
+					skipConfigure := tap.Confirm(ctx, tap.ConfirmOptions{
+						Message:      "Skip ahead and use previously saved configuration settings?",
+						InitialValue: savedConf.SkipConfigure,
+					})
+					conf.SkipConfigure = skipConfigure
+
+					if skipConfigure {
+						conf.BuildFiles = savedConf.BuildFiles
+						conf.GitName = savedConf.GitName
+						conf.GitEmail = savedConf.GitEmail
+						conf.GitBranch = savedConf.GitBranch
+						conf.SelectedPkgs = savedConf.SelectedPkgs
+						step = 5
+						continue
+					}
+				}
+
 				options := []tap.SelectOption[string]{
 					{Value: ".zshrc", Label: ".zshrc"},
 					{Value: ".zprofile", Label: ".zprofile"},
@@ -239,7 +258,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 				conf.Confirm = tap.Confirm(ctx, tap.ConfirmOptions{
 					Message:      "Are you sure you want to proceed?",
-					InitialValue: false,
+					InitialValue: conf.SkipConfigure,
 				})
 
 				if !conf.Confirm {
@@ -283,6 +302,7 @@ end:
 			savedConf.PackageManager = conf.PackageManager
 		}
 		if conf.Operation == "configure" {
+			savedConf.SkipConfigure = conf.SkipConfigure
 			savedConf.BuildFiles = conf.BuildFiles
 
 			if slices.Contains(conf.BuildFiles, ".zshrc") {

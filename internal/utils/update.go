@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"time"
 
+	"github.com/huffmanks/stash/internal/config"
 	"github.com/yarlson/tap"
 )
 
@@ -44,6 +45,9 @@ func HandleUpdate(banner string, force bool, latest string) {
 	}
 
 	cmd := exec.Command("sh", "-c", shellCmd)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 
 	if err != nil {
@@ -54,6 +58,11 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 	time.Sleep(time.Millisecond * 1000)
 	spinner.Stop("Updating...", 0)
+
+	if savedConf, err := config.Load(); err == nil {
+		savedConf.Version = latest
+		_ = savedConf.Save()
+	}
 
 	time.Sleep(time.Millisecond * 100)
 	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", latest))
