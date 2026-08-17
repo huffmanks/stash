@@ -65,7 +65,7 @@ func HandleUpdate(banner string, force bool, latest string) {
 	}
 
 	time.Sleep(time.Millisecond * 100)
-	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", latest))
+	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", Style(latest, "bold", "cyan")))
 	time.Sleep(time.Millisecond * 100)
 
 	os.Exit(0)

@@ -49,6 +49,10 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				InitialValue: initialOp,
 				Options:      options,
 			})
+
+			savedConf.Operation = conf.Operation
+			savedConf.Save()
+
 			step++
 		case 2:
 			if conf.Operation == "install" {
@@ -296,8 +300,6 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 end:
 	if !dryRun {
-		savedConf.Operation = conf.Operation
-
 		if conf.Operation == "install" {
 			savedConf.PackageManager = conf.PackageManager
 		}
