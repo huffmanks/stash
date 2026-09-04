@@ -181,7 +181,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 			categories := map[string][]string{
 				"CLI tools": {},
-				"Exports":   {"bun", "docker", "go", "nvm", "pnpm"},
+				"Exports":   {"bun", "go", "nvm", "pnpm"},
 				"Plugins":   {"fzf", "zsh-autosuggestions", "zsh-syntax-highlighting"},
 			}
 
@@ -191,6 +191,10 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 			if runtime.GOOS == "darwin" {
 				categories["Exports"] = append(categories["Exports"], "java-android-studio")
+			}
+
+			if runtime.GOOS == "linux" {
+				categories["Exports"] = append(categories["Exports"], "docker")
 			}
 
 			categoryOrder := []string{"CLI tools", "Exports", "Plugins"}
