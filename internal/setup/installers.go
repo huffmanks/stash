@@ -55,13 +55,29 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		case pkg == "docker":
 			if runtime.GOOS == "linux" {
 				err = installDocker(dryRun, progress)
+			} else {
+				progress.Message(fmt.Sprintln("⚠️ [docker]: Skipping installation (only automated for Linux)"))
+				progress.Advance(1, "⚠️ [docker]: skipped")
+				continue
 			}
 		case pkg == "go":
 			err = installGo(dryRun, progress)
 		case pkg == "nvm":
 			err = utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun, progress)
 		case pkg == "pnpm":
-			err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
+			isMacIntel := runtime.GOOS == "darwin" && runtime.GOARCH == "amd64"
+
+			if isMacIntel {
+				if _, lookErr := exec.LookPath("npm"); lookErr == nil {
+					err = utils.RunCmd("npm i -g pnpm", dryRun, progress)
+				} else {
+					progress.Message("⚠️ [pnpm]: npm not found. Skipping pnpm installation...")
+					progress.Advance(1, "⚠️ [pnpm]: skipped (npm missing)")
+					continue
+				}
+			} else {
+				err = utils.RunCmd("curl -fsSL https://get.pnpm.io/install.sh | sh -", dryRun, progress)
+			}
 		case pkg == "uv":
 			err = utils.RunCmd("curl -LsSf https://astral.sh/uv/install.sh | sh", dryRun, progress)
 		case pkg == "zsh":
@@ -153,29 +169,27 @@ func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) e
 }
 
 func installDocker(dryRun bool, progress *tap.Progress) error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("automated docker installation is only supported on Linux")
+	}
+
+	if dryRun {
+		return utils.RunCmd("sudo sh /tmp/get-docker.sh", dryRun, progress)
+	}
+
 	tempScript := filepath.Join(os.TempDir(), "get-docker.sh")
 
-	if !dryRun {
-		data, err := assets.Files.ReadFile("scripts/get-docker.sh")
-		if err != nil {
-			msg := fmt.Sprintf("❌ [ERROR]: Failed to read docker script: %v", err)
-			progress.Message(msg)
-			time.Sleep(time.Millisecond * 100)
-
-			return fmt.Errorf("read docker script: %w", err)
-		}
-
-		err = os.WriteFile(tempScript, data, 0755)
-		if err != nil {
-			msg := fmt.Sprintf("❌ [ERROR]: Failed to write temp script: %v", err)
-			progress.Message(msg)
-			time.Sleep(time.Millisecond * 100)
-
-			return fmt.Errorf("write temp script: %w", err)
-		}
-
-		defer os.Remove(tempScript)
+	data, err := assets.Files.ReadFile("scripts/get-docker.sh")
+	if err != nil {
+		progress.Message(fmt.Sprintf("❌ [ERROR]: Failed to read docker script: %v", err))
+		return fmt.Errorf("read docker script: %w", err)
 	}
+
+	if err := os.WriteFile(tempScript, data, 0755); err != nil {
+		progress.Message(fmt.Sprintf("❌ [ERROR]: Failed to write temp script: %v", err))
+		return fmt.Errorf("write temp script: %w", err)
+	}
+	defer os.Remove(tempScript)
 
 	return utils.RunCmd(fmt.Sprintf("sudo sh %s", tempScript), dryRun, progress)
 }
