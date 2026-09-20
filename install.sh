@@ -93,3 +93,26 @@ case ":$PATH:" in
 esac
 
 "$INSTALL_DIR/stash" --version
+
+if uname -r | grep -qi "android"; then
+    echo "🤖 Android environment detected. Configuring Zsh..."
+
+    sudo DEBIAN_FRONTEND=noninteractive apt install -y zsh
+
+    if ! grep -q '/home/droid/.local/bin' ~/.zprofile 2>/dev/null; then
+        echo 'export PATH="$PATH:/home/droid/.local/bin"' >> ~/.zprofile
+    fi
+
+    if ! grep -q 'command -v zsh' ~/.bashrc 2>/dev/null; then
+        cat << 'EOF' >> ~/.bashrc
+
+if [ -x "$(command -v zsh)" ]; then
+  export SHELL=$(command -v zsh)
+  exec $(command -v zsh) -l
+fi
+EOF
+    fi
+
+    chsh -s $(which zsh) || true
+    exec zsh
+fi
