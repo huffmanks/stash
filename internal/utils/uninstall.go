@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/user"
+	"path/filepath"
 	"time"
 
 	"github.com/yarlson/tap"
@@ -33,16 +35,48 @@ func HandleUninstall(banner string) {
 		os.Exit(0)
 	}
 
-	binaryPath := "/usr/local/bin/stash"
+	usr, err := user.Current()
+	var homeDir string
+	if err == nil {
+		homeDir = usr.HomeDir
+	} else {
+		homeDir = os.Getenv("HOME")
+	}
 
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		tap.Outro(Style("🛑 [ABORTED]: stash is not found in /usr/local/bin.", "orange"))
+	localBinPath := filepath.Join(homeDir, ".local", "bin", "stash")
+	systemBinPath := "/usr/local/bin/stash"
+
+	var binaryPath string
+	if _, err := os.Stat(localBinPath); err == nil {
+		binaryPath = localBinPath
+	} else if _, err := os.Stat(systemBinPath); err == nil {
+		binaryPath = systemBinPath
+	}
+
+	if binaryPath == "" {
+		tap.Outro(Style("🛑 [ABORTED]: stash is not found in ~/.local/bin or /usr/local/bin.", "orange"))
 		os.Exit(0)
 	}
 
-	errorMsg := fmt.Sprintf("❌ %s\n   %s\n      %s\n      %s", Style("[ERROR]: Failed to remove the binary.", "red"), Style("To finish the cleanup, you can manually remove:", "dim"), Style("• /usr/local/bin/stash", "cyan"), Style("• ~/.config/stash", "cyan"))
+	needsSudo := binaryPath == systemBinPath
+
+	errorMsg := fmt.Sprintf("❌ %s\n   %s\n      %s\n      %s",
+		Style("[ERROR]: Failed to remove the binary.", "red"),
+		Style("To finish the cleanup, you can manually remove:", "dim"),
+		Style(fmt.Sprintf("• %s", binaryPath), "cyan"),
+		Style(fmt.Sprintf("• %s/.config/stash", homeDir), "cyan"),
+	)
+
 	command := fmt.Sprintf("rm %s", binaryPath)
-	PromptForSudo(errorMsg, false, command)
+
+	if needsSudo {
+		PromptForSudo(errorMsg, false, command)
+	} else {
+		if err := os.Remove(binaryPath); err != nil {
+			fmt.Println(errorMsg)
+			os.Exit(1)
+		}
+	}
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,
