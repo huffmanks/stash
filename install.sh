@@ -97,7 +97,11 @@ esac
 if uname -r | grep -qi "android"; then
     echo "🤖 Android environment detected. Configuring Zsh..."
 
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y zsh
+    if ! command -v zsh >/dev/null 2>&1; then
+        sudo DEBIAN_FRONTEND=noninteractive apt install -y zsh
+    else
+        echo "✨ Zsh is already installed. Skipping installation."
+    fi
 
     if ! grep -q '/home/droid/.local/bin' ~/.zprofile 2>/dev/null; then
         echo 'export PATH="$PATH:/home/droid/.local/bin"' >> ~/.zprofile
@@ -113,6 +117,6 @@ fi
 EOF
     fi
 
-    chsh -s $(which zsh) || true
+    chsh -s $(which zsh) 2>/dev/null || true
     exec zsh
 fi
