@@ -31,6 +31,15 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 	for _, pkg := range c.SelectedPkgs {
 		var err error
 
+		isZshPlugin := strings.HasPrefix(pkg, "zsh-") && runtime.GOOS == "linux"
+
+		if !isZshPlugin && utils.CommandExists(pkg) {
+			progress.Message(fmt.Sprintf("⚠️ [SKIPPED]: %s is already installed.", pkg))
+			progress.Advance(1, fmt.Sprintf("⚠️ [%s]: skipped", pkg))
+			time.Sleep(time.Millisecond * 500)
+			continue
+		}
+
 		if runtime.GOOS != "linux" && pkg != "docker" {
 			msg := fmt.Sprintf("📦 Installing %s...", pkg)
 			progress.Message(msg)
@@ -40,8 +49,6 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 				time.Sleep(time.Millisecond * 500)
 			}
 		}
-
-		isZshPlugin := strings.HasPrefix(pkg, "zsh-") && runtime.GOOS == "linux"
 
 		switch {
 		case pkg == "bat":

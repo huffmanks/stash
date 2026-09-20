@@ -227,8 +227,16 @@ func ResolvePkgName(pm, pkg string) string {
 	return pkg
 }
 
-func CommandExists(name string) bool {
-	_, err := exec.LookPath(name)
+func CommandExists(pkg string) bool {
+	if pkg == "nvm" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return false
+		}
+		_, statErr := os.Stat(filepath.Join(home, ".nvm"))
+		return statErr == nil
+	}
+	_, err := exec.LookPath(pkg)
 	return err == nil
 }
 
