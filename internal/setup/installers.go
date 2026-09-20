@@ -54,8 +54,12 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		case pkg == "bat":
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 			if err == nil && runtime.GOOS == "linux" {
-				aliasCmd := `if command -v batcat &>/dev/null && ! command -v bat &>/dev/null; then sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1; fi`
-				utils.RunCmd(aliasCmd, dryRun, progress)
+				if _, batcatErr := exec.LookPath("batcat"); batcatErr == nil {
+					if _, batErr := exec.LookPath("bat"); batErr != nil {
+						aliasCmd := `sudo update-alternatives --install /usr/local/bin/bat bat /usr/bin/batcat 1`
+						utils.RunCmd(aliasCmd, dryRun, progress)
+					}
+				}
 			}
 		case pkg == "bun":
 			err = utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun, progress)
