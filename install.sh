@@ -94,8 +94,8 @@ esac
 
 "$INSTALL_DIR/stash" --version
 
-if uname -r | grep -qi "android"; then
-    echo "🤖 Android environment detected. Configuring Zsh..."
+if uname -a | grep -qE -i "android|debian|ubuntu" || { [ -f /etc/os-release ] && grep -qE -i "android|debian|ubuntu" /etc/os-release; }; then
+    echo "📦 Debian/Ubuntu/Android environment detected. Configuring Zsh..."
 
     if ! command -v zsh >/dev/null 2>&1; then
         sudo DEBIAN_FRONTEND=noninteractive apt install -y zsh
@@ -103,8 +103,8 @@ if uname -r | grep -qi "android"; then
         echo "✨ Zsh is already installed. Skipping installation."
     fi
 
-    if ! grep -q '/home/droid/.local/bin' ~/.zprofile 2>/dev/null; then
-        echo 'export PATH="$PATH:/home/droid/.local/bin"' >> ~/.zprofile
+    if ! grep -q '\$HOME/\.local/bin' ~/.zprofile 2>/dev/null; then
+        echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.zprofile
     fi
 
     if ! grep -q 'command -v zsh' ~/.bashrc 2>/dev/null; then
