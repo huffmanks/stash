@@ -187,7 +187,7 @@ func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) e
 		return fmt.Errorf("%s", msg)
 	}
 
-	cmdStr := fmt.Sprintf("git clone --depth 1 %s %s", repoURL, targetPath)
+	cmdStr := fmt.Sprintf("git clone --quiet --depth 1 %s %s", repoURL, targetPath)
 	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
