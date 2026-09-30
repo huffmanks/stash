@@ -29,7 +29,6 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		return nil
 	}
 
-	pkgCount := 0
 	extraPkgs := 0
 	needsSystemTools := false
 
@@ -71,7 +70,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			}
 		}
 
-		pkgCount = len(c.SelectedPkgs) + extraPkgs
+		pkgCount := len(c.SelectedPkgs) + extraPkgs
 
 		progress := tap.NewProgress(tap.ProgressOptions{
 			Max:   pkgCount,
@@ -82,13 +81,15 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		progress.Start("Installing packages...")
 		time.Sleep(time.Millisecond * 100)
 
+		var installedPkgs []string
+		var skippedPkgs []string
 		var failedPkgs []string
 
 		if needsSystemTools {
-			ensureMacOSPrereqs(c.PackageManager, dryRun, progress, &failedPkgs)
+			ensureMacOSPrereqs(c.PackageManager, dryRun, progress, &failedPkgs, &installedPkgs)
 		}
 
-		if err := installSystemPkgs(c, dryRun, progress, &failedPkgs); err != nil {
+		if err := installSystemPkgs(c, dryRun, progress, &installedPkgs, &skippedPkgs, &failedPkgs); err != nil {
 			return err
 		}
 
@@ -96,39 +97,24 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		progress.Stop("🏁 [FINISHED]", 0)
 		time.Sleep(time.Millisecond * 100)
 
-		successfulPkgs := c.SelectedPkgs
-
-		if len(failedPkgs) > 0 {
-			failedMap := make(map[string]bool)
-			for _, p := range failedPkgs {
-				failedMap[p] = true
-			}
-
-			successfulPkgs = []string{}
-			for _, p := range c.SelectedPkgs {
-				if !failedMap[p] {
-					successfulPkgs = append(successfulPkgs, p)
-				}
-			}
+		if len(installedPkgs) > 0 {
+			tap.Message(fmt.Sprintf("📦 [INSTALLED]: %d packages\n\n   %s",
+				len(installedPkgs),
+				strings.Join(installedPkgs, ", ")))
 		}
 
-		installedPkgsMsg := fmt.Sprintf("📦 [INSTALLED]: %d packages\n\n   %s",
-			len(successfulPkgs),
-			strings.Join(successfulPkgs, ", "))
+		if len(skippedPkgs) > 0 {
+			tap.Message(fmt.Sprintf("⚠️ [SKIPPED]: %d packages\n\n   %s",
+				len(skippedPkgs),
+				strings.Join(skippedPkgs, ", ")))
+		}
 
 		if len(failedPkgs) > 0 {
-
-			if len(successfulPkgs) > 0 {
-				tap.Message(installedPkgsMsg)
-			}
-
-			failedPkgsMsg := fmt.Sprintf("❌ [FAILED]: %d packages\n\n   %s",
+			tap.Outro(fmt.Sprintf("❌ [FAILED]: %d packages\n\n   %s",
 				len(failedPkgs),
-				strings.Join(failedPkgs, ", "))
-
-			tap.Outro(failedPkgsMsg)
+				strings.Join(failedPkgs, ", ")))
 		} else {
-			tap.Outro(installedPkgsMsg)
+			tap.Outro("🎉 [COMPLETE]: All operations finished successfully.")
 		}
 
 		time.Sleep(time.Millisecond * 100)

@@ -18,7 +18,7 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, failedPkgs *[]string) error {
+func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, installedPkgs, skippedPkgs, failedPkgs *[]string) error {
 	if c.PackageManager == "macports" && !dryRun {
 		utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
 
@@ -36,6 +36,7 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 		if !isZshPlugin && utils.CommandExists(pkg) {
 			progress.Message(fmt.Sprintf("⚠️ [SKIPPED]: %s is already installed.", pkg))
 			progress.Advance(1, fmt.Sprintf("⚠️ [%s]: skipped", pkg))
+			*skippedPkgs = append(*skippedPkgs, pkg)
 			time.Sleep(time.Millisecond * 500)
 			continue
 		}
@@ -67,8 +68,10 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			if runtime.GOOS == "linux" {
 				err = installDocker(dryRun, progress)
 			} else {
-				progress.Message(fmt.Sprintln("⚠️ [docker]: Skipping installation (only automated for Linux)"))
+				progress.Message("⚠️ [docker]: Skipping installation (only automated for Linux)")
 				progress.Advance(1, "⚠️ [docker]: skipped")
+				*skippedPkgs = append(*skippedPkgs, pkg)
+				time.Sleep(time.Millisecond * 500)
 				continue
 			}
 		case pkg == "go":
@@ -84,6 +87,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 				} else {
 					progress.Message("⚠️ [pnpm]: npm not found. Skipping pnpm installation...")
 					progress.Advance(1, "⚠️ [pnpm]: skipped (npm missing)")
+					*skippedPkgs = append(*skippedPkgs, pkg)
+					time.Sleep(time.Millisecond * 500)
 					continue
 				}
 			} else {
@@ -109,14 +114,13 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, fa
 			if !slices.Contains(*failedPkgs, pkg) {
 				*failedPkgs = append(*failedPkgs, pkg)
 			}
-
 			progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
 		} else {
+			*installedPkgs = append(*installedPkgs, pkg)
 			progress.Advance(1, fmt.Sprintf("✅ [%s]: installed", pkg))
 		}
 
 		time.Sleep(time.Millisecond * 500)
-
 	}
 	return nil
 }
@@ -238,7 +242,7 @@ func installGo(dryRun bool, progress *tap.Progress) error {
 	return utils.RunCmd(cmd, dryRun, progress)
 }
 
-func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPkgs *[]string) {
+func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPkgs, installedPkgs *[]string) {
 	_, err := exec.LookPath("xcode-select")
 	if err != nil {
 		if dryRun {
@@ -248,6 +252,8 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 			cmdErr := utils.RunCmd("xcode-select --install", dryRun, progress)
 			if cmdErr != nil {
 				*failedPkgs = append(*failedPkgs, "xcode")
+			} else {
+				*installedPkgs = append(*installedPkgs, "xcode")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Xcode Command Line Tools...")
 			time.Sleep(time.Millisecond * 100)
@@ -261,6 +267,8 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 
 			if cmdErr != nil {
 				*failedPkgs = append(*failedPkgs, "homebrew")
+			} else {
+				*installedPkgs = append(*installedPkgs, "homebrew")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Homebrew...")
 			time.Sleep(time.Millisecond * 100)
@@ -271,6 +279,8 @@ func ensureMacOSPrereqs(pm string, dryRun bool, progress *tap.Progress, failedPk
 
 			if cmdErr != nil {
 				*failedPkgs = append(*failedPkgs, "macports")
+			} else {
+				*installedPkgs = append(*installedPkgs, "macports")
 			}
 			progress.Advance(1, "📦 [INSTALLING]: Macports...")
 			time.Sleep(time.Millisecond * 100)
