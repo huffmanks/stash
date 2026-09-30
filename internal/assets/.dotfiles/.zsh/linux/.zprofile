@@ -1,5 +1,5 @@
 # =====================================
-# .zprofile (android:arm)
+# .zprofile (linux)
 # =====================================
 
-export PATH="$PATH:/home/droid/.local/bin"
+export PATH="$PATH:$HOME/.local/bin"
