@@ -156,6 +156,18 @@ func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) e
 		return fmt.Errorf("%s", msg)
 	}
 
+	if _, err := os.Stat(targetPath); err == nil {
+		if !dryRun {
+			if err := os.RemoveAll(targetPath); err != nil {
+				msg := fmt.Sprintf("❌ [FAILED]: to remove existing directory: %s", targetPath)
+				progress.Message(msg)
+				time.Sleep(time.Millisecond * 100)
+
+				return fmt.Errorf("%s", msg)
+			}
+		}
+	}
+
 	parentDir := filepath.Dir(targetPath)
 	if !dryRun {
 		if err := os.MkdirAll(parentDir, 0755); err != nil {
