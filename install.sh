@@ -103,8 +103,8 @@ if uname -a | grep -qE -i "android|debian|ubuntu" || { [ -f /etc/os-release ] &&
         echo "✨ Zsh is already installed. Skipping installation."
     fi
 
-    if ! grep -q '\$HOME/\.local/bin' ~/.zprofile 2>/dev/null; then
-        echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.zprofile
+    if ! grep -q '\$HOME/\.local/bin' ~/.zshrc 2>/dev/null; then
+        echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.zshrc
     fi
 
     if ! grep -q 'command -v zsh' ~/.bashrc 2>/dev/null; then
