@@ -27,7 +27,7 @@ func HandleUninstall(banner string) {
 		Message:      "Are you sure you want to uninstall?",
 		InitialValue: initialValue,
 		Options: []tap.SelectOption[string]{
-			{Value: "yes", Label: "Yes", Hint: "Requires root privileges"},
+			{Value: "yes", Label: "Yes", Hint: "May require root privileges"},
 			{Value: "no", Label: "No"},
 		},
 	})
