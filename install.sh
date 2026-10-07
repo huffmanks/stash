@@ -21,14 +21,16 @@ VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep 
 if command -v stash >/dev/null 2>&1; then
     CURRENT_VERSION=$(stash --version | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
     if [ "$FORCE_INSTALL" = false ] && [ "${CURRENT_VERSION#v}" = "${VERSION#v}" ]; then
-        echo "stash ${VERSION} is already installed and up to date!"
+        echo "✨ stash ${VERSION} is already installed and up to date!"
         exit 0
     fi
 
     if [ "$FORCE_INSTALL" = true ]; then
-        echo "Force install triggered. Reinstalling stash ${VERSION}..."
+        echo "⚡ Force install triggered. Reinstalling stash ${VERSION}..."
+        echo
     else
-        echo "Upgrading stash from ${CURRENT_VERSION} to ${VERSION}..."
+        echo "🔄 Upgrading stash from ${CURRENT_VERSION} to ${VERSION}..."
+        echo
     fi
 fi
 
@@ -54,7 +56,18 @@ if [ -n "$FOUND_BINARIES" ]; then
     echo "$FOUND_BINARIES" | while read -r legacy; do
         if [ -f "$legacy" ] && [ "$legacy" != "$INSTALL_DIR/stash" ]; then
             echo "🧹 Removing legacy binary from $legacy..."
+            echo
+
+            NEEDS_PASS=false
+            if ! sudo -n true 2>/dev/null; then
+                NEEDS_PASS=true
+            fi
+
             sudo rm -f "$legacy" || true
+
+            if [ "$NEEDS_PASS" = true ]; then
+                echo
+            fi
         fi
     done
 fi
@@ -91,34 +104,15 @@ if [ "$OS" = "darwin" ]; then
     $SUDO xattr -d com.apple.quarantine "$INSTALL_DIR/stash" 2>/dev/null || true
 fi
 
-echo "✅ stash installed to $INSTALL_DIR/stash"
-
-case ":$PATH:" in
-  *":$INSTALL_DIR:"*) ;;
-  *)
-    echo "⚠️  $INSTALL_DIR was not in your PATH. Adding it..."
-    for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
-        if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR" "$rc"; then
-            echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$rc"
-        fi
-    done
-    export PATH="$INSTALL_DIR:$PATH"
-    ;;
-esac
-
-"$INSTALL_DIR/stash" --version
-
 if uname -a | grep -qE -i "android|debian|ubuntu" || { [ -f /etc/os-release ] && grep -qE -i "android|debian|ubuntu" /etc/os-release; }; then
+    echo
     echo "📦 Debian/Ubuntu/Android environment detected. Configuring Zsh..."
 
     if ! command -v zsh >/dev/null 2>&1; then
         sudo DEBIAN_FRONTEND=noninteractive apt install -y zsh
     else
+        echo
         echo "✨ Zsh is already installed. Skipping installation."
-    fi
-
-    if ! grep -q '\$HOME/\.local/bin' ~/.zshrc 2>/dev/null; then
-        echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.zshrc
     fi
 
     if ! grep -q 'command -v zsh' ~/.bashrc 2>/dev/null; then
@@ -132,5 +126,31 @@ EOF
     fi
 
     chsh -s $(which zsh) 2>/dev/null || true
-    exec zsh
+fi
+
+case ":$PATH:" in
+  *":$INSTALL_DIR:"*) ;;
+  *)
+    echo
+    echo "⚠️  $INSTALL_DIR was not in your PATH. Adding it..."
+    for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR" "$rc"; then
+            echo "export PATH=\"$INSTALL_DIR:\$PATH\"" >> "$rc"
+        fi
+    done
+    export PATH="$INSTALL_DIR:$PATH"
+    ;;
+esac
+
+echo
+echo "✅ stash installed to $INSTALL_DIR/stash"
+
+"$INSTALL_DIR/stash" --version
+
+if [ -t 2 ] && command -v zsh >/dev/null 2>&1; then
+    sleep 2
+    echo
+    echo "🔄 Reloading shell session..."
+    echo
+    exec zsh -l < /dev/tty
 fi
