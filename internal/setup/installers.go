@@ -18,7 +18,7 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, installedPkgs, skippedPkgs, failedPkgs *[]string) error {
+func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, installedPkgs, updatedPkgs, skippedPkgs, failedPkgs *[]string) error {
 	if c.PackageManager == "macports" && !dryRun {
 		utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
 
@@ -34,7 +34,7 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, in
 		isZshPlugin := strings.HasPrefix(pkg, "zsh-") && runtime.GOOS == "linux"
 
 		if !isZshPlugin && utils.CommandExists(pkg) {
-			progress.Message(fmt.Sprintf("⚠️ [SKIPPED]: %s is already installed.", pkg))
+			progress.Message(fmt.Sprintf("⚠️  [SKIPPED]: %s is already installed.", pkg))
 			progress.Advance(1, fmt.Sprintf("⚠️ [%s]: skipped", pkg))
 			*skippedPkgs = append(*skippedPkgs, pkg)
 			time.Sleep(time.Millisecond * 500)
@@ -105,7 +105,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, in
 			repo := fmt.Sprintf("https://github.com/zsh-users/%s", pkg)
 			home, _ := os.UserHomeDir()
 			target := filepath.Join(home, ".zsh", pkg)
-			err = gitClone(repo, target, dryRun, progress)
+			err = syncGitRepo(pkg, repo, target, dryRun, progress, installedPkgs, updatedPkgs, failedPkgs)
+			continue
 		default:
 			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
 		}
@@ -151,25 +152,27 @@ func installViaPM(pm, pkg string, dryRun bool, progress *tap.Progress) error {
 	return utils.RunCmd(cmdStr, dryRun, progress)
 }
 
-func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) error {
+func syncGitRepo(pkg, repoURL, targetPath string, dryRun bool, progress *tap.Progress, installed, updated, failed *[]string) error {
 	if _, err := exec.LookPath("git"); err != nil {
 		msg := fmt.Sprintf("❌ [ERROR]: git is not installed; %s", repoURL)
 		progress.Message(msg)
 		time.Sleep(time.Millisecond * 100)
-
+		*failed = append(*failed, pkg)
+		progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
 		return fmt.Errorf("%s", msg)
 	}
 
 	if _, err := os.Stat(targetPath); err == nil {
-		if !dryRun {
-			if err := os.RemoveAll(targetPath); err != nil {
-				msg := fmt.Sprintf("❌ [FAILED]: to remove existing directory: %s", targetPath)
-				progress.Message(msg)
-				time.Sleep(time.Millisecond * 100)
-
-				return fmt.Errorf("%s", msg)
-			}
+		progress.Message(fmt.Sprintf("🔄 Updating %s...", pkg))
+		cmdStr := fmt.Sprintf("git -C %s pull --quiet", targetPath)
+		if err := utils.RunCmd(cmdStr, dryRun, progress); err != nil {
+			*failed = append(*failed, pkg)
+			progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
+			return err
 		}
+		*updated = append(*updated, pkg)
+		progress.Advance(1, fmt.Sprintf("🔄 [%s]: updated", pkg))
+		return nil
 	}
 
 	parentDir := filepath.Dir(targetPath)
@@ -178,21 +181,23 @@ func gitClone(repoURL, targetPath string, dryRun bool, progress *tap.Progress) e
 			msg := fmt.Sprintf("❌ [FAILED]: to create directory: %s", parentDir)
 			progress.Message(msg)
 			time.Sleep(time.Millisecond * 100)
-
+			*failed = append(*failed, pkg)
+			progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
 			return fmt.Errorf("%s", msg)
 		}
 	}
 
-	if _, err := os.Stat(targetPath); err == nil {
-		msg := fmt.Sprintf("⚠️ [SKIPPED]: %s already exists.", filepath.Base(targetPath))
-		progress.Message(msg)
-		time.Sleep(time.Millisecond * 100)
-
-		return fmt.Errorf("%s", msg)
+	progress.Message(fmt.Sprintf("📦 Installing %s...", pkg))
+	cmdStr := fmt.Sprintf("git clone --quiet --depth 1 %s %s", repoURL, targetPath)
+	if err := utils.RunCmd(cmdStr, dryRun, progress); err != nil {
+		*failed = append(*failed, pkg)
+		progress.Advance(1, fmt.Sprintf("❌ [%s]: failed", pkg))
+		return err
 	}
 
-	cmdStr := fmt.Sprintf("git clone --quiet --depth 1 %s %s", repoURL, targetPath)
-	return utils.RunCmd(cmdStr, dryRun, progress)
+	*installed = append(*installed, pkg)
+	progress.Advance(1, fmt.Sprintf("✅ [%s]: installed", pkg))
+	return nil
 }
 
 func installDocker(dryRun bool, progress *tap.Progress) error {

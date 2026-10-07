@@ -82,6 +82,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		time.Sleep(time.Millisecond * 100)
 
 		var installedPkgs []string
+		var updatedPkgs []string
 		var skippedPkgs []string
 		var failedPkgs []string
 
@@ -89,7 +90,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 			ensureMacOSPrereqs(c.PackageManager, dryRun, progress, &failedPkgs, &installedPkgs)
 		}
 
-		if err := installSystemPkgs(c, dryRun, progress, &installedPkgs, &skippedPkgs, &failedPkgs); err != nil {
+		if err := installSystemPkgs(c, dryRun, progress, &installedPkgs, &updatedPkgs, &skippedPkgs, &failedPkgs); err != nil {
 			return err
 		}
 
@@ -103,8 +104,14 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 				strings.Join(installedPkgs, ", ")))
 		}
 
+		if len(updatedPkgs) > 0 {
+			tap.Message(fmt.Sprintf("🔄 [UPDATED]: %d packages\n\n   %s",
+				len(updatedPkgs),
+				strings.Join(updatedPkgs, ", ")))
+		}
+
 		if len(skippedPkgs) > 0 {
-			tap.Message(fmt.Sprintf("⚠️ [SKIPPED]: %d packages\n\n   %s",
+			tap.Message(fmt.Sprintf("⚠️  [SKIPPED]: %d packages\n\n   %s",
 				len(skippedPkgs),
 				strings.Join(skippedPkgs, ", ")))
 		}
@@ -322,7 +329,7 @@ func copyGitIgnore(dryRun bool, created *[]string, spinner *tap.Spinner) {
 
 	data, err := assets.Files.ReadFile(sourcePath)
 	if err != nil {
-		spinner.Stop(fmt.Sprintf("⚠️ [SKIPPED]: No .gitignore found at: %s", sourcePath), 1)
+		spinner.Stop(fmt.Sprintf("⚠️  [SKIPPED]: No .gitignore found at: %s", sourcePath), 1)
 		time.Sleep(time.Millisecond * 100)
 		return
 	}

@@ -289,7 +289,7 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 			zprofileSpinner.Stop("✅ [CREATED]: .zprofile", 0)
 			time.Sleep(time.Millisecond * 100)
 		} else {
-			zprofileSpinner.Stop("⚠️ [SKIPPED]: No .zprofile found in search paths", 1)
+			zprofileSpinner.Stop("⚠️  [SKIPPED]: No .zprofile found in search paths", 1)
 			time.Sleep(time.Millisecond * 100)
 		}
 	}
