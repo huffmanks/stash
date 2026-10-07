@@ -193,7 +193,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				categories["Exports"] = append(categories["Exports"], "java-android-studio")
 			}
 
-			if runtime.GOOS == "linux" {
+			if runtime.GOOS == "linux" || conf.Operation == "configure" {
 				categories["Exports"] = append(categories["Exports"], "docker")
 			}
 
