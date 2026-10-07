@@ -122,40 +122,56 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 	spinner.Message("Installing binary...")
 
-	execPath, err := os.Executable()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		installDir := "/usr/local/bin"
-		if os.Getuid() != 0 {
-			if home, err := os.UserHomeDir(); err == nil {
-				installDir = filepath.Join(home, ".local", "bin")
-			}
-		}
-		execPath = filepath.Join(installDir, "stash")
-	}
-
-	var cpCmd, chmodCmd *exec.Cmd
-	if strings.HasPrefix(execPath, "/usr/local/bin") && os.Getuid() != 0 {
-		cpCmd = exec.Command("sudo", "cp", extractedBinaryPath, execPath)
-		chmodCmd = exec.Command("sudo", "chmod", "+x", execPath)
-	} else {
-		if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
-			spinner.Stop("❌ [FAILED]: creating install directory.", 2)
-			os.Exit(1)
-		}
-		cpCmd = exec.Command("cp", extractedBinaryPath, execPath)
-		chmodCmd = exec.Command("chmod", "+x", execPath)
-	}
-
-	cpCmd.Stdout = os.Stdout
-	cpCmd.Stderr = os.Stderr
-	if err := cpCmd.Run(); err != nil {
-		spinner.Stop("❌ [FAILED]: installing binary to destination.", 2)
+		spinner.Stop("❌ [FAILED]: determining home directory.", 2)
 		os.Exit(1)
 	}
 
-	if err := chmodCmd.Run(); err != nil {
+	execPath := filepath.Join(homeDir, ".local", "bin", "stash")
+
+	if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
+		spinner.Stop("❌ [FAILED]: creating install directory.", 2)
+		os.Exit(1)
+	}
+
+	if err := os.Chmod(extractedBinaryPath, 0755); err != nil {
 		spinner.Stop("❌ [FAILED]: setting executable permissions.", 2)
 		os.Exit(1)
+	}
+
+	_ = os.Remove(execPath)
+	if err := os.Rename(extractedBinaryPath, execPath); err != nil {
+		cpCmd := exec.Command("cp", extractedBinaryPath, execPath)
+		if err := cpCmd.Run(); err != nil {
+			spinner.Stop("❌ [FAILED]: installing binary to destination.", 2)
+			os.Exit(1)
+		}
+	}
+
+	if path, err := exec.LookPath("stash"); err == nil {
+		var legacyPaths []string
+
+		out, err := exec.Command("sh", "-c", "type -a -p stash || which -a stash").Output()
+		if err == nil {
+			lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+			for _, line := range lines {
+				p := strings.TrimSpace(line)
+				if p != "" && p != execPath {
+					legacyPaths = append(legacyPaths, p)
+				}
+			}
+		} else if path != execPath {
+			legacyPaths = append(legacyPaths, path)
+		}
+
+		for _, legacyPath := range legacyPaths {
+			if _, err := os.Stat(legacyPath); err == nil {
+				if err := os.Remove(legacyPath); err != nil {
+					_ = exec.Command("sudo", "rm", "-f", legacyPath).Run()
+				}
+			}
+		}
 	}
 
 	time.Sleep(time.Millisecond * 1000)

@@ -45,11 +45,18 @@ BINARY_NAME="${APP_NAME}_${VERSION#v}_${OS}_${ARCH}"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${BINARY_NAME}.tar.gz"
 
 if [ -z "$INSTALL_DIR" ]; then
-    if [ "$(id -u)" -eq 0 ] || [ -w "/usr/local/bin" ]; then
-        INSTALL_DIR="/usr/local/bin"
-    else
-        INSTALL_DIR="$HOME/.local/bin"
-    fi
+    INSTALL_DIR="$HOME/.local/bin"
+fi
+
+FOUND_BINARIES=$(type -a -p stash 2>/dev/null || true)
+
+if [ -n "$FOUND_BINARIES" ]; then
+    echo "$FOUND_BINARIES" | while read -r legacy; do
+        if [ -f "$legacy" ] && [ "$legacy" != "$INSTALL_DIR/stash" ]; then
+            echo "🧹 Removing legacy binary from $legacy..."
+            sudo rm -f "$legacy" || true
+        fi
+    done
 fi
 
 mkdir -p "$INSTALL_DIR" 2>/dev/null || true
@@ -88,8 +95,15 @@ echo "✅ stash installed to $INSTALL_DIR/stash"
 
 case ":$PATH:" in
   *":$INSTALL_DIR:"*) ;;
-  *) echo "⚠️  $INSTALL_DIR is not in your PATH. Add it to your shell profile:"
-     echo "   export PATH=\"\$PATH:$INSTALL_DIR\"" ;;
+  *)
+    echo "⚠️  $INSTALL_DIR was not in your PATH. Adding it..."
+    for rc in "$HOME/.zshrc" "$HOME/.bashrc"; do
+        if [ -f "$rc" ] && ! grep -q "$INSTALL_DIR" "$rc"; then
+            echo "export PATH=\"\$PATH:$INSTALL_DIR\"" >> "$rc"
+        fi
+    done
+    export PATH="$INSTALL_DIR:$PATH"
+    ;;
 esac
 
 "$INSTALL_DIR/stash" --version
