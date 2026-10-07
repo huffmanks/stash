@@ -208,13 +208,17 @@ func DeleteFiles(dryRun bool, spinner *tap.Spinner) config.DeleteResult {
 
 var pkgOverrides = map[string]map[string]string{
 	"fd": {
-		"apt": "fd-find",
-		"dnf": "fd-find",
+		"apt":    "fd-find",
+		"dnf":    "fd-find",
+		"binary": "fdfind",
 	},
 	"java-android-studio": {
 		"brew":     "--cask zulu@17",
 		"homebrew": "--cask zulu@17",
 		"macports": "openjdk17-zulu",
+	},
+	"nvm": {
+		"path": "~/.nvm",
 	},
 }
 
@@ -228,15 +232,20 @@ func ResolvePkgName(pm, pkg string) string {
 }
 
 func CommandExists(pkg string) bool {
-	if pkg == "nvm" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return false
+	if path := ResolvePkgName("path", pkg); path != pkg {
+		if strings.HasPrefix(path, "~/") {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return false
+			}
+			path = filepath.Join(home, path[2:])
 		}
-		_, statErr := os.Stat(filepath.Join(home, ".nvm"))
-		return statErr == nil
+		_, err := os.Stat(path)
+		return err == nil
 	}
-	_, err := exec.LookPath(pkg)
+
+	cmd := ResolvePkgName("binary", pkg)
+	_, err := exec.LookPath(cmd)
 	return err == nil
 }
 
