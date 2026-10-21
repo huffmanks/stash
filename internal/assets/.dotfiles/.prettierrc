@@ -6,10 +6,11 @@
   "bracketSameLine": true,
   "singleAttributePerLine": false,
   "trailingComma": "es5",
-    "importOrder": [
-    "^(astro|bun|deno|electron|expo|hono|next|nitro|node|nuxt|react|react-native|remix|solid|solidstart|svelte|sveltekit|tanstack|vite|vue(-[a-zA-Z-]*)?)$",
+  "importOrder": [
+    "^(astro|bun|deno|electron|expo|hono|next|nitro|node|nuxt|react|react-native|remix|solid|solidstart|svelte|sveltekit|tanstack|vite|vue(-[a-zA-Z-]*)?)(/.*)?$",
     "<THIRD_PARTY_MODULES>",
-    "^@/(?!components)(.*)$",
+    "^@/(?!components|features)(.*)$",
+    "^@/features/(.*)$",
     "^@/components/(.*)$",
     "^[./]"
   ],
