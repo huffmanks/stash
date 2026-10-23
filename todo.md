@@ -1,0 +1,3 @@
+- [ ] if user doesnt have docker exclude those aliases and functions from .zshrc.
+- [ ] exclude nuke_cache function from android .zshrc.
+- [ ] if dnf git releases pre-built for just and extract mv to bin and cleanup
