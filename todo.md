@@ -1,1 +1,0 @@
-- [ ] if dnf git releases pre-built for just and extract mv to bin and cleanup

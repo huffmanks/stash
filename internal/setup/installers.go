@@ -76,6 +76,13 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, in
 			}
 		case pkg == "go":
 			err = installGo(dryRun, progress)
+		case pkg == "just":
+			err = installViaPM(c.PackageManager, pkg, dryRun, progress)
+			if err != nil {
+				progress.Message("⚠️ [just]: Package manager install failed/unavailable. Falling back to GitHub release binary...")
+				time.Sleep(time.Millisecond * 100)
+				err = installJust(dryRun, progress)
+			}
 		case pkg == "nvm":
 			err = utils.RunCmd("curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.2/install.sh | bash", dryRun, progress)
 		case pkg == "pnpm":
@@ -243,6 +250,48 @@ func installGo(dryRun bool, progress *tap.Progress) error {
 		url := fmt.Sprintf("https://go.dev/dl/go%s.linux-%s.tar.gz", version, runtime.GOARCH)
 		cmd = fmt.Sprintf("curl -L %s | sudo tar -C /usr/local -xzf -", url)
 	}
+
+	return utils.RunCmd(cmd, dryRun, progress)
+}
+
+func installJust(dryRun bool, progress *tap.Progress) error {
+	version := "1.59.0"
+	if !dryRun {
+		out, err := exec.Command("sh", "-c", "curl -s https://api.github.com/repos/casey/just/releases/latest | grep '\"tag_name\":' | sed -E 's/.*\"([^\"]+)\".*/\\1/'").Output()
+		if err == nil {
+			v := strings.TrimSpace(string(out))
+			if v != "" {
+				version = strings.TrimPrefix(v, "v")
+			}
+		}
+	}
+
+	var targetArch string
+	switch runtime.GOOS {
+	case "darwin":
+		if runtime.GOARCH == "arm64" {
+			targetArch = "aarch64-apple-darwin"
+		} else {
+			targetArch = "x86_64-apple-darwin"
+		}
+	case "linux":
+		switch runtime.GOARCH {
+		case "amd64":
+			targetArch = "x86_64-unknown-linux-musl"
+		case "arm64":
+			targetArch = "aarch64-unknown-linux-musl"
+		case "arm":
+			targetArch = "arm-unknown-linux-musleabihf"
+		default:
+			targetArch = "x86_64-unknown-linux-musl"
+		}
+	default:
+		return fmt.Errorf("unsupported OS for just binary installation: %s", runtime.GOOS)
+	}
+
+	url := fmt.Sprintf("https://github.com/casey/just/releases/download/%s/just-%s-%s.tar.gz", version, version, targetArch)
+
+	cmd := fmt.Sprintf("tmpDir=$(mktemp -d) && curl -sL %s | tar -xz -C \"$tmpDir\" && sudo install -m 755 \"$tmpDir/just\" /usr/local/bin/just && rm -rf \"$tmpDir\"", url)
 
 	return utils.RunCmd(cmd, dryRun, progress)
 }
