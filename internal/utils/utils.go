@@ -240,8 +240,13 @@ func CommandExists(pkg string) bool {
 			}
 			path = filepath.Join(home, path[2:])
 		}
+
 		_, err := os.Stat(path)
 		return err == nil
+	}
+
+	if _, err := exec.LookPath(pkg); err == nil {
+		return true
 	}
 
 	cmd := ResolvePkgName("binary", pkg)

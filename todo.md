@@ -1,2 +1,1 @@
 - [ ] if dnf git releases pre-built for just and extract mv to bin and cleanup
-- [ ] fd-find still being installed at least for dnf.
