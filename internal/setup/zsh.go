@@ -88,9 +88,13 @@ func buildZshConfigs(c *config.Config, goos, arch string, dryRun bool, created *
 		displayOS = "macOS"
 	}
 
-	if utils.IsAndroid() {
-		archFolder = "android"
-		displayOS = "Android"
+	if goos == "linux" {
+		if utils.IsAndroid() {
+			archFolder = "android"
+			displayOS = "Android"
+		} else {
+			archFolder = "desktop"
+		}
 	}
 
 	pm := utils.DetectPackageManager()
