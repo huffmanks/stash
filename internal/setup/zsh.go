@@ -52,6 +52,7 @@ var dynamicPkgs = map[string]config.DynamicPackage{
 			{
 				"~/.zsh/zsh-autosuggestions/zsh-autosuggestions.zsh",
 				"/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
+				"/opt/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
 				"/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
 				"/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh",
 				"/usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh",
@@ -63,6 +64,7 @@ var dynamicPkgs = map[string]config.DynamicPackage{
 			{
 				"~/.zsh/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
 				"/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
+				"/opt/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
 				"/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
 				"/usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
 				"/usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh",
