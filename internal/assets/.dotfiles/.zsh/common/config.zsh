@@ -3,6 +3,7 @@
 # =====================================
 
 export TZ="America/New_York"
+export PATH="$HOME/.local/bin:$PATH"
 
 if [ "$TERM" = "xterm" ]; then
   export TERM="xterm-256color"
