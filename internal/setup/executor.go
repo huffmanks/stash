@@ -206,6 +206,86 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		os.Exit(0)
 	}
 
+	if c.Operation == "preset" {
+		var report PresetReport
+		var failedPresets []string
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getting working directory: %w", err)
+		}
+
+		for _, name := range c.Presets {
+			preset := Presets[name]
+
+			spinner := tap.NewSpinner(tap.SpinnerOptions{
+				Delay: time.Millisecond * 100,
+			})
+
+			spinner.Start("Downloading " + preset.Label + "...")
+			time.Sleep(time.Millisecond * 100)
+
+			result, err := DownloadPreset(name, dryRun)
+
+			report.Downloaded = append(report.Downloaded, result.Downloaded...)
+			report.Skipped = append(report.Skipped, result.Skipped...)
+			report.Failed = append(report.Failed, result.Failed...)
+
+			if err != nil {
+				failedPresets = append(failedPresets, preset.Label)
+				spinner.Stop("⚠️  [PARTIAL]: "+preset.Label, 1)
+			} else {
+				spinner.Stop("✅ [COMPLETE]: "+preset.Label, 0)
+			}
+		}
+
+		var sections []string
+
+		if len(report.Downloaded) > 0 {
+			header := fmt.Sprintf("📥 [DOWNLOADED]: %d", len(report.Downloaded))
+
+			if dryRun {
+				header = fmt.Sprintf("📥 [DRY_RUN]: Would download: %d", len(report.Downloaded))
+			}
+
+			sections = append(sections, header+"\n   "+strings.Join(report.Downloaded, "\n   "))
+		}
+
+		if len(report.Skipped) > 0 {
+			sections = append(sections,
+				fmt.Sprintf("⚠️  [SKIPPED]: %d\n   %s",
+					len(report.Skipped),
+					strings.Join(report.Skipped, "\n   "),
+				),
+			)
+		}
+
+		if len(report.Failed) > 0 {
+			sections = append(sections,
+				fmt.Sprintf("❌ [FAILED]: %d\n   %s",
+					len(report.Failed),
+					strings.Join(report.Failed, "\n   "),
+				),
+			)
+		}
+
+		if len(sections) == 0 {
+			tap.Outro("✨ No files were processed.")
+		} else {
+			tap.Outro(fmt.Sprintf(
+				"📁 [DESTINATION]: %s\n\n%s",
+				cwd,
+				strings.Join(sections, "\n\n"),
+			))
+		}
+
+		if len(failedPresets) > 0 {
+			return fmt.Errorf("failed to download some presets: %s", strings.Join(failedPresets, ", "))
+		}
+
+		return nil
+	}
+
 	if c.Operation == "delete" {
 		spinner := tap.NewSpinner(tap.SpinnerOptions{
 			Delay: time.Millisecond * 100,

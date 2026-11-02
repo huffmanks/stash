@@ -1,6 +1,6 @@
 binary_name := "stash"
 dist_path := "dist"
-version := "1.2.5"
+version := "1.3.0"
 
 default: dev
 

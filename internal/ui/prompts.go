@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/huffmanks/stash/internal/config"
+	"github.com/huffmanks/stash/internal/setup"
 	"github.com/huffmanks/stash/internal/utils"
 	"github.com/yarlson/tap"
 )
@@ -41,6 +42,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 			options := []tap.SelectOption[string]{
 				{Value: "install", Label: "Install packages", Hint: "Using your package manager"},
 				{Value: "configure", Label: "Configure shell", Hint: ".zshrc, .zprofile, .gitconfig, .gitignore"},
+				{Value: "preset", Label: "Download presets", Hint: "ESLint, Prettier, VS Code, etc."},
 				{Value: "delete", Label: "Delete backup files", Hint: "~/.config/stash/bak**"},
 			}
 
@@ -122,6 +124,30 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 					continue
 				}
 				step = 3
+			}
+
+			if conf.Operation == "preset" {
+				options := make([]tap.SelectOption[string], 0, len(setup.Presets))
+
+				for key, preset := range setup.Presets {
+					options = append(options, tap.SelectOption[string]{
+						Value: key,
+						Label: preset.Label,
+						Hint:  strings.Join(preset.Files, ", "),
+					})
+				}
+
+				slices.SortFunc(options, func(a, b tap.SelectOption[string]) int {
+					return strings.Compare(a.Label, b.Label)
+				})
+
+				conf.Presets = tap.MultiSelect(ctx, tap.MultiSelectOptions[string]{
+					Message: "What presets would you like to download?",
+					Options: options,
+				})
+
+				step = 5
+				continue
 			}
 
 			if conf.Operation == "delete" {
@@ -250,10 +276,26 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 				rows = append(rows, []string{"Packages", utils.Style(strings.Join(conf.SelectedPkgs, ", "), "bold", "cyan")})
 			}
 
+			if conf.Operation == "preset" {
+				labels := make([]string, 0, len(conf.Presets))
+
+				for _, key := range conf.Presets {
+					if preset, ok := setup.Presets[key]; ok {
+						labels = append(labels, preset.Label)
+					}
+				}
+
+				rows = append(rows, []string{
+					"Downloading presets",
+					utils.Style(strings.Join(labels, ", "), "bold", "cyan"),
+				})
+			}
+
 			hasPackages := len(conf.SelectedPkgs) > 0
 			includesZshrc := slices.Contains(conf.BuildFiles, ".zshrc")
 
-			showSummary := (hasPackages && (conf.Operation == "install" || includesZshrc)) ||
+			showSummary := conf.Operation == "preset" ||
+				(hasPackages && (conf.Operation == "install" || includesZshrc)) ||
 				(conf.Operation == "configure" && !includesZshrc)
 
 			if showSummary {

@@ -1,7 +1,0 @@
-# ===============================================
-#  pnpm Global Configuration
-#  macOS: ~/Library/Preferences/pnpm/config.yaml
-#  Linux: ~/.config/pnpm/config.yaml
-# ===============================================
-
-minimumReleaseAge: 4320 # 3 days

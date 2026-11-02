@@ -19,6 +19,7 @@ type Config struct {
 	GitBranch      string   `json:"git_branch"`
 	GHPath         string   `json:"-"`
 	SelectedPkgs   []string `json:"selected_pkgs"`
+	Presets        []string `json:"presets"`
 	SkipConfigure  bool     `json:"skip_configure"`
 	Confirm        bool     `json:"-"`
 	StartOver      bool     `json:"-"`
