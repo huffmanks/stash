@@ -53,6 +53,22 @@ __pycache__/
 .envrc
 !example*.env*
 !.env*example*
+.fallow/
+*-output.xml
+*-output.txt
+
+# ==============================
+# SQLite & Database Files
+# ==============================
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/*.db-journal
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite-journal
+**/*.sqlite-wal
+**/*.sqlite-shm
 
 # ==============================
 # Logs & Debug
