@@ -20,7 +20,9 @@ import (
 
 func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, installedPkgs, updatedPkgs, skippedPkgs, failedPkgs *[]string) error {
 	if c.PackageManager == "macports" && !dryRun {
-		utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
+		if err := utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true); err != nil {
+			return err
+		}
 
 		if err := utils.RunCmd("sudo port sync", dryRun, progress); err != nil {
 			progress.Message(fmt.Sprintf("❌ [ERROR]: MacPorts sync failed: %v", err))

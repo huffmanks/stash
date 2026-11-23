@@ -61,7 +61,9 @@ func RunCmd(shellCmd string, dryRun bool, progress *tap.Progress) error {
 	}
 
 	if strings.Contains(shellCmd, "sudo") {
-		PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
+		if err := PromptForSudo("❌ [ERROR]: sudo authentication failed.", true); err != nil {
+			return err
+		}
 	}
 
 	executingMsg := fmt.Sprintf("🪓 [EXECUTING]: %s", shellCmd)
@@ -262,7 +264,7 @@ func hasSudoPrivilege() bool {
 	return err == nil
 }
 
-func PromptForSudo(errorMsg string, skipCmd bool, command ...string) {
+func PromptForSudo(errorMsg string, skipCmd bool, command ...string) error {
 
 	time.Sleep(100 * time.Millisecond)
 	var targetCmd string
@@ -274,7 +276,7 @@ func PromptForSudo(errorMsg string, skipCmd bool, command ...string) {
 		if !skipCmd && targetCmd != "" {
 			_ = exec.Command("sudo", "-S", "sh", "-c", targetCmd).Run()
 		}
-		return
+		return nil
 	}
 
 	tap.Message("Authenticate to continue...")
@@ -293,7 +295,7 @@ func PromptForSudo(errorMsg string, skipCmd bool, command ...string) {
 				continue
 			}
 			tap.Outro(errorMsg)
-			os.Exit(1)
+			return fmt.Errorf("sudo authentication failed: password was empty")
 		}
 
 		cmdToRun := targetCmd
@@ -308,7 +310,7 @@ func PromptForSudo(errorMsg string, skipCmd bool, command ...string) {
 
 			time.Sleep(100 * time.Millisecond)
 			if hasSudoPrivilege() {
-				return
+				return nil
 			}
 			if i < maxRetries-1 {
 				tap.Message(Style("⚠️  [WARNING]: Invalid password, try again.", "orange"))
@@ -316,12 +318,14 @@ func PromptForSudo(errorMsg string, skipCmd bool, command ...string) {
 			}
 
 			tap.Outro(errorMsg)
-			os.Exit(1)
+			return fmt.Errorf("sudo authentication failed after %d attempts", maxRetries)
 		}
 
 		time.Sleep(100 * time.Millisecond)
-		return
+		return nil
 	}
+
+	return fmt.Errorf("sudo authentication failed")
 }
 
 func GetLatestVersion(version string) string {

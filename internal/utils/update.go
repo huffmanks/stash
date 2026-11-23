@@ -18,7 +18,7 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func HandleUpdate(banner string, force bool, latest string) {
+func HandleUpdate(banner string, force bool, latest string) error {
 	ctx := context.Background()
 
 	tap.Intro(banner)
@@ -32,11 +32,13 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 		if !confirmed {
 			tap.Outro(Style("🛑 [ABORTED]: stash remains installed.", "orange"))
-			os.Exit(0)
+			return nil
 		}
 	}
 
-	PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
+	if err := PromptForSudo("❌ [ERROR]: sudo authentication failed.", true); err != nil {
+		return err
+	}
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
 		Delay: time.Millisecond * 100,
@@ -51,24 +53,26 @@ func HandleUpdate(banner string, force bool, latest string) {
 	tmpDir, err := os.MkdirTemp("", "stash-update-*")
 	if err != nil {
 		spinner.Stop("❌ [FAILED]: creating temporary directory.", 2)
-		os.Exit(1)
+		return fmt.Errorf("creating temporary directory: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
 	resp, err := http.Get(downloadURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
+	if err != nil {
 		spinner.Stop(fmt.Sprintf("❌ [FAILED]: downloading release from %s", downloadURL), 2)
-		os.Exit(1)
+		return fmt.Errorf("downloading release: %w", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		spinner.Stop(fmt.Sprintf("❌ [FAILED]: downloading release from %s", downloadURL), 2)
+		return fmt.Errorf("download returned HTTP status %s", resp.Status)
+	}
 
 	gzr, err := gzip.NewReader(resp.Body)
 	if err != nil {
 		spinner.Stop("❌ [FAILED]: reading gzip stream.", 2)
-		os.Exit(1)
+		return fmt.Errorf("reading gzip stream: %w", err)
 	}
 	defer gzr.Close()
 
@@ -82,32 +86,42 @@ func HandleUpdate(banner string, force bool, latest string) {
 		}
 		if err != nil {
 			spinner.Stop("❌ [FAILED]: reading archive.", 2)
-			os.Exit(1)
+			return fmt.Errorf("reading archive: %w", err)
 		}
 
 		target := filepath.Join(tmpDir, header.Name)
+
+		rel, err := filepath.Rel(tmpDir, target)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			spinner.Stop("❌ [FAILED]: invalid archive path.", 2)
+			return fmt.Errorf("invalid archive path: %s", header.Name)
+		}
+
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0755); err != nil {
 				spinner.Stop("❌ [FAILED]: creating directory structure.", 2)
-				os.Exit(1)
+				return fmt.Errorf("creating directory structure: %w", err)
 			}
 		case tar.TypeReg:
 			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
 				spinner.Stop("❌ [FAILED]: creating parent directory.", 2)
-				os.Exit(1)
+				return fmt.Errorf("creating parent directory: %w", err)
 			}
 			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
 			if err != nil {
 				spinner.Stop("❌ [FAILED]: extracting file.", 2)
-				os.Exit(1)
+				return fmt.Errorf("extracting file: %w", err)
 			}
 			if _, err := io.Copy(f, tr); err != nil {
 				f.Close()
 				spinner.Stop("❌ [FAILED]: writing extracted file.", 2)
-				os.Exit(1)
+				return fmt.Errorf("writing extracted file: %w", err)
 			}
-			f.Close()
+			if err := f.Close(); err != nil {
+				spinner.Stop("❌ [FAILED]: closing extracted file.", 2)
+				return fmt.Errorf("closing extracted file: %w", err)
+			}
 
 			if filepath.Base(target) == "stash" {
 				extractedBinaryPath = target
@@ -117,7 +131,7 @@ func HandleUpdate(banner string, force bool, latest string) {
 
 	if extractedBinaryPath == "" {
 		spinner.Stop("❌ [FAILED]: 'stash' binary not found in archive.", 2)
-		os.Exit(1)
+		return fmt.Errorf("'stash' binary not found in archive")
 	}
 
 	spinner.Message("Installing binary...")
@@ -125,19 +139,19 @@ func HandleUpdate(banner string, force bool, latest string) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		spinner.Stop("❌ [FAILED]: determining home directory.", 2)
-		os.Exit(1)
+		return fmt.Errorf("determining home directory: %w", err)
 	}
 
 	execPath := filepath.Join(homeDir, ".local", "bin", "stash")
 
 	if err := os.MkdirAll(filepath.Dir(execPath), 0755); err != nil {
 		spinner.Stop("❌ [FAILED]: creating install directory.", 2)
-		os.Exit(1)
+		return fmt.Errorf("creating install directory: %w", err)
 	}
 
 	if err := os.Chmod(extractedBinaryPath, 0755); err != nil {
 		spinner.Stop("❌ [FAILED]: setting executable permissions.", 2)
-		os.Exit(1)
+		return fmt.Errorf("setting executable permissions: %w", err)
 	}
 
 	_ = os.Remove(execPath)
@@ -145,7 +159,7 @@ func HandleUpdate(banner string, force bool, latest string) {
 		cpCmd := exec.Command("cp", extractedBinaryPath, execPath)
 		if err := cpCmd.Run(); err != nil {
 			spinner.Stop("❌ [FAILED]: installing binary to destination.", 2)
-			os.Exit(1)
+			return fmt.Errorf("installing binary to destination: %w", err)
 		}
 	}
 
@@ -186,5 +200,5 @@ func HandleUpdate(banner string, force bool, latest string) {
 	tap.Outro(fmt.Sprintf("✅ [UPDATED]: successfully to version [%s]", Style(latest, "bold", "cyan")))
 	time.Sleep(time.Millisecond * 100)
 
-	os.Exit(0)
+	return nil
 }

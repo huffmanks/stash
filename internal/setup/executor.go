@@ -35,7 +35,9 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 	if c.Operation == "install" && len(c.SelectedPkgs) > 0 {
 
 		if !dryRun {
-			utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true)
+			if err := utils.PromptForSudo("❌ [ERROR]: sudo authentication failed.", true); err != nil {
+				return err
+			}
 		}
 
 		if runtime.GOOS == "darwin" {
@@ -126,7 +128,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 
 		time.Sleep(time.Millisecond * 100)
 
-		os.Exit(0)
+		return nil
 	}
 
 	if c.Operation == "configure" && len(c.BuildFiles) > 0 {
@@ -203,7 +205,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		tap.Outro(outroMsg)
 		time.Sleep(time.Millisecond * 100)
 
-		os.Exit(0)
+		return nil
 	}
 
 	if c.Operation == "preset" {
@@ -330,7 +332,7 @@ func ExecuteSetup(c *config.Config, dryRun bool) error {
 		tap.Outro(strings.TrimSpace(outroMsg))
 		time.Sleep(time.Millisecond * 100)
 
-		os.Exit(0)
+		return nil
 
 	}
 

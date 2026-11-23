@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/huffmanks/stash/internal/config"
@@ -13,6 +12,14 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+
 	dryRun := flag.Bool("dry-run", false, "Run without making changes")
 	flag.BoolVar(dryRun, "d", false, "Run without making changes (shorthand)")
 
@@ -47,6 +54,7 @@ func main() {
 		banner := ui.DisplayBanner(title, description)
 
 		utils.HandleVersion(banner)
+		return nil
 	}
 
 	switch command {
@@ -60,12 +68,12 @@ func main() {
 		description := fmt.Sprintf("Current version: [%s]", utils.Style(config.Version, "bold", "green"))
 		banner := ui.DisplayBanner("Update", description)
 
-		utils.HandleUpdate(banner, *force, latest)
+		return utils.HandleUpdate(banner, *force, latest)
 
 	case "uninstall":
 		title := fmt.Sprintf("Uninstalling stash: [%s]", utils.Style(config.Version, "bold", "green"))
 		banner := ui.DisplayBanner(title, utils.Style("This will remove the binary from your system.", "dim"))
-		utils.HandleUninstall(banner)
+		return utils.HandleUninstall(banner)
 
 	case "help":
 		flag.Usage()
@@ -73,18 +81,18 @@ func main() {
 	case "":
 		conf, err := ui.RunPrompts(*dryRun, config.Version)
 		if err != nil {
-			log.Fatal(err)
+			return err
 		}
 
-		err = setup.ExecuteSetup(conf, *dryRun)
-		if err != nil {
-			log.Fatal(err)
+		if conf == nil {
+			return nil
 		}
+
+		return setup.ExecuteSetup(conf, *dryRun)
 
 	default:
-		fmt.Printf("Unknown command: %s\n", command)
-		flag.Usage()
-		os.Exit(1)
+		return fmt.Errorf("unknown command: %s", command)
 	}
 
+	return nil
 }

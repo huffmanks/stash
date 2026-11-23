@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"runtime"
 	"slices"
 	"strings"
@@ -158,7 +157,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 				if !conf.Confirm {
 					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
-					os.Exit(0)
+					return nil, nil
 				}
 
 				step = 6
@@ -313,7 +312,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 				if !conf.Confirm {
 					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
-					os.Exit(0)
+					return nil, nil
 				}
 			} else {
 				var msg string
@@ -330,7 +329,7 @@ func RunPrompts(dryRun bool, version string) (*config.Config, error) {
 
 				if !conf.StartOver {
 					tap.Outro(utils.Style("🛑 [ABORTED]: No actions performed.", "orange"))
-					os.Exit(0)
+					return nil, nil
 				}
 
 				conf.SelectedPkgs = []string{}

@@ -13,7 +13,7 @@ import (
 	"github.com/yarlson/tap"
 )
 
-func HandleUninstall(banner string) {
+func HandleUninstall(banner string) error {
 	ctx := context.Background()
 
 	tap.Intro(banner)
@@ -34,7 +34,7 @@ func HandleUninstall(banner string) {
 
 	if confirmed == "no" {
 		tap.Outro(Style("🛑 [ABORTED]: stash remains installed.", "orange"))
-		os.Exit(0)
+		return nil
 	}
 
 	usr, err := user.Current()
@@ -85,7 +85,7 @@ func HandleUninstall(banner string) {
 
 	if len(targets) == 0 {
 		tap.Outro(Style("🛑 [ABORTED]: stash binary not found.", "orange"))
-		os.Exit(0)
+		return nil
 	}
 
 	targetsBulletList := strings.Join(formattedTargets, "\n      ")
@@ -96,24 +96,26 @@ func HandleUninstall(banner string) {
 		Style(fmt.Sprintf("• %s", configDir), "cyan"),
 	)
 
-	command := fmt.Sprintf("rm -f %s", strings.Join(targets, " "))
-
 	if needsSudo {
-		PromptForSudo(errorMsg, false, command)
+		command := append([]string{"rm", "-f", "--"}, targets...)
+		if err := PromptForSudo(errorMsg, false, command...); err != nil {
+			return err
+		}
 	} else {
 		for _, path := range targets {
 			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 				tap.Message(errorMsg)
-				os.Exit(1)
+				return fmt.Errorf("%s: %w", errorMsg, err)
 			}
 		}
 	}
 
 	var configRemoved bool
 	if _, err := os.Stat(configDir); err == nil {
-		if err := os.RemoveAll(configDir); err == nil {
-			configRemoved = true
+		if err := os.RemoveAll(configDir); err != nil {
+			return fmt.Errorf("removing configuration directory %s: %w", configDir, err)
 		}
+		configRemoved = true
 	}
 
 	spinner := tap.NewSpinner(tap.SpinnerOptions{
@@ -139,5 +141,5 @@ func HandleUninstall(banner string) {
 
 	tap.Outro("✅ [UNINSTALLED]: stash has been removed successfully.")
 	time.Sleep(time.Millisecond * 100)
-	os.Exit(0)
+	return nil
 }
