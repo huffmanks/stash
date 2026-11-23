@@ -220,6 +220,9 @@ var pkgOverrides = map[string]map[string]string{
 	"nvm": {
 		"path": "~/.nvm",
 	},
+	"ripgrep": {
+		"binary": "rg",
+	},
 }
 
 func ResolvePkgName(pm, pkg string) string {

@@ -64,6 +64,8 @@ func installSystemPkgs(c *config.Config, dryRun bool, progress *tap.Progress, in
 			}
 		case pkg == "bun":
 			err = utils.RunCmd("curl -fsSL https://bun.com/install | bash", dryRun, progress)
+		case pkg == "croc":
+			err = utils.RunCmd("curl -fsSL https://getcroc.com | bash", dryRun, progress)
 		case pkg == "docker":
 			if runtime.GOOS == "linux" {
 				err = installDocker(dryRun, progress)
