@@ -86,8 +86,14 @@ if [ ! -w "$INSTALL_DIR" ]; then
 fi
 
 TMP_DIR=$(mktemp -d)
-trap 'rm -rf "$TMP_DIR"; exit 1' INT TERM
-trap 'rm -rf "$TMP_DIR"' EXIT
+
+cleanup() {
+    rm -rf "$TMP_DIR"
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 echo "🚀 Downloading stash ${VERSION} for ${OS}/${ARCH}..."
 curl -sSL -o "$TMP_DIR/stash.tar.gz" "$DOWNLOAD_URL"
@@ -147,10 +153,8 @@ echo "✅ stash installed to $INSTALL_DIR/stash"
 
 "$INSTALL_DIR/stash" --version
 
-if [ -t 2 ] && command -v zsh >/dev/null 2>&1; then
-    sleep 2
+if [ -t 1 ]; then
+    sleep 1
     echo
-    echo "🔄 Reloading shell session..."
-    echo
-    exec zsh -l < /dev/tty
+    echo "🔄 Restart your terminal or run 'exec zsh -l' to use zsh."
 fi
